@@ -26,9 +26,6 @@
   error: '#B22222',             // Rich Firebrick
   warning: '#D4A017',           // Deep Gold
   
-  // ===== GRADIENTS (Light Premium Gold → Deep Maroon) =====
-  gradientStart: '#E8C84A',     // Light Premium Gold ✨
-  gradientEnd: '#8B1A1A',       // Deep Maroon/Brown
   
   // ===== SHADOWS =====
   shadowGold: 'rgba(212, 175, 55, 0.3)',

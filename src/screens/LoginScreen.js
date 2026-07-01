@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  ImageBackground,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
 import { COLORS } from '../styles/colors';
+
+const { width, height } = Dimensions.get('window');
 
 // ✅ STATIC BRANCHES (hardcoded)
 const STATIC_BRANCHES = [
@@ -36,6 +41,26 @@ const LoginScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
 
   const { login } = useAuth();
+
+  // ✅ Animation refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    // ✅ Start animations when component mounts
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleLogin = async () => {
     console.log('Username:', username);
@@ -86,17 +111,30 @@ const LoginScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../assets/images/loginbgi.png')}
+      style={styles.container}
+      resizeMode="cover"
+    >
       <StatusBar
         barStyle="light-content"
-        backgroundColor={COLORS.primaryDark}
+        backgroundColor="transparent"
       />
 
       <KeyboardAvoidingView
-        style={styles.cardWrapper}
+        style={styles.wrapper}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.card}>
+        {/* ✅ Animated Card */}
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           <View style={styles.logoContainer}>
             <Image
               source={require('../assets/images/logo.png')}
@@ -106,7 +144,7 @@ const LoginScreen = () => {
           </View>
 
           <Text style={styles.welcomeText}>Welcome to</Text>
-          <Text style={styles.appName}> CRM </Text>
+          <Text style={styles.appName}>SKTM CRM</Text>
           <Text style={styles.companyName}>
             Shree Kumaran Thangamaalihai
           </Text>
@@ -159,7 +197,7 @@ const LoginScreen = () => {
             onPress={handleLogin}
             loading={loading}
           />
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
 
       <Modal
@@ -183,42 +221,52 @@ const LoginScreen = () => {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.primaryDark,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    ...(Platform.OS === 'web' && {
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    }),
   },
-
-  cardWrapper: {
+  wrapper: {
     flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    ...(Platform.OS === 'web' && {
+      width: '100%',
+      maxWidth: 450,
+      maxHeight: '90vh',
+      paddingHorizontal: 0,
+    }),
   },
-
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
     borderRadius: 25,
     padding: 30,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2,
     shadowRadius: 25,
     elevation: 10,
+    borderWidth: 2.5,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+    ...(Platform.OS === 'web' && {
+      padding: 35,
+      borderRadius: 30,
+      shadowOpacity: 0.3,
+      width: '100%',
+    }),
   },
-
   logoContainer: {
     alignItems: 'center',
     marginBottom: 10,
   },
-
   logo: {
     width: 100,
     height: 100,
@@ -226,15 +274,17 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.primary,
     backgroundColor: COLORS.white,
+    ...(Platform.OS === 'web' && {
+      width: 80,
+      height: 80,
+    }),
   },
-
   welcomeText: {
     fontSize: 16,
     color: COLORS.gray,
     textAlign: 'center',
     marginBottom: 2,
   },
-
   appName: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -242,7 +292,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 2,
   },
-
   companyName: {
     fontSize: 18,
     color: COLORS.secondary,
@@ -250,20 +299,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 15,
   },
-
   divider: {
     height: 2,
     backgroundColor: COLORS.lightGray,
     marginVertical: 20,
   },
-
   label: {
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.black,
     marginBottom: 6,
   },
-
   dropdown: {
     backgroundColor: COLORS.lightGray,
     borderRadius: 12,
@@ -275,23 +321,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E0DCD8',
+    ...(Platform.OS === 'web' && {
+      width: '100%',
+    }),
   },
-
   dropdownText: {
     fontSize: 16,
     color: COLORS.black,
   },
-
   dropdownPlaceholder: {
     fontSize: 16,
     color: COLORS.gray,
   },
-
   dropdownArrow: {
     fontSize: 14,
     color: COLORS.gray,
   },
-
   errorText: {
     color: COLORS.error,
     fontSize: 14,
@@ -299,14 +344,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 10,
   },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   modalContent: {
     backgroundColor: COLORS.white,
     borderRadius: 20,
@@ -314,15 +357,18 @@ const styles = StyleSheet.create({
     width: '80%',
     maxHeight: '60%',
     elevation: 8,
+    ...(Platform.OS === 'web' && {
+      width: 380,
+      maxWidth: '90%',
+      padding: 25,
+    }),
   },
-
   branchItem: {
     paddingVertical: 14,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray,
   },
-
   branchText: {
     fontSize: 16,
     color: COLORS.black,

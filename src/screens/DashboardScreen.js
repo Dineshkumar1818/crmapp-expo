@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   ImageBackground,
   Image,
   Alert,
-  Platform,  // ✅ ADDED Platform
+  Platform,
+  Animated,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,6 +17,26 @@ const { width, height } = Dimensions.get('window');
 
 const DashboardScreen = ({ navigation }) => {
   const { logout } = useAuth();
+
+  // ✅ Animation refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    // ✅ Start animations when component mounts
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   // ✅ FIXED: Logout with platform check
   const handleLogout = () => {
@@ -41,10 +62,18 @@ const DashboardScreen = ({ navigation }) => {
     <ImageBackground
       source={require('../assets/images/pattern.png')}
       style={styles.backgroundImage}
-      imageStyle={{ opacity: 0.75 }}
+      imageStyle={{ opacity: 0.70 }}
       resizeMode="cover"
     >
-      <View style={styles.container}>
+      <Animated.View 
+        style={[
+          styles.container,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }
+        ]}
+      >
         {/* Top Gold Line */}
         <View style={styles.topGoldLine} />
 
@@ -126,7 +155,7 @@ const DashboardScreen = ({ navigation }) => {
         {/* Bottom Brand */}
         <Text style={styles.brandText}>Shree Kumaran Thangamaalihai</Text>
         <View style={styles.bottomGoldLine} />
-      </View>
+      </Animated.View>
     </ImageBackground>
   );
 };
@@ -172,16 +201,16 @@ const styles = StyleSheet.create({
     borderRadius: 34,
   },
   userName: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1A1108',
+    color: '#8B1A1A',
     marginTop: 8,
     letterSpacing: 0.5,
     textAlign: 'center',
   },
   userRole: {
-    fontSize: 12,
-    color: '#8B1A1A',
+    fontSize: 18,
+    color: '#0a0707',
     fontWeight: '500',
     letterSpacing: 1.5,
     marginTop: 1,

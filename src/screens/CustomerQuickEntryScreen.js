@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../styles/colors';
@@ -166,7 +167,7 @@ const CustomerQuickEntryScreen = ({ navigation }) => {
       setSaving(true);
       
       const formData = {
-        branch: selectedBranch,  // ✅ Send ID to backend
+        branch: selectedBranch,
         customerName,
         mobileNumber,
         postalCode,
@@ -226,7 +227,11 @@ const CustomerQuickEntryScreen = ({ navigation }) => {
         'Are you sure you want to clear all fields?',
         [
           { text: 'No', style: 'cancel' },
-          { text: 'Yes', onPress: clearForm, style: 'destructive' }
+          { 
+            text: 'Yes', 
+            onPress: clearForm,
+            style: 'destructive'
+          }
         ]
       );
     }
@@ -255,190 +260,207 @@ const CustomerQuickEntryScreen = ({ navigation }) => {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.scrollContainer}>
-        <ScrollView 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.contentContainer}
-          style={styles.scrollView}
-          nestedScrollEnabled={true}
-          scrollEnabled={true}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Text style={styles.backButtonText}>‹</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Customer Quick Entry</Text>
-            <View style={styles.headerSpacer} />
-          </View>
+    <ImageBackground
+      source={require('../assets/images/pattern.png')}
+      style={styles.backgroundImage}
+      imageStyle={{ opacity: 0.12 }}
+      resizeMode="cover"
+    >
+      <View style={styles.container}>
+        <View style={styles.scrollContainer}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.contentContainer}
+            style={styles.scrollView}
+            nestedScrollEnabled={true}
+            scrollEnabled={true}
+          >
+            {/* Top Gold Accent Line */}
+            <View style={styles.topGoldLine} />
 
-          {/* Gold Line */}
-          <View style={styles.goldLine} />
-
-          {/* ===== FORM ===== */}
-          <View style={styles.formContainer}>
-
-            {/* 1. BRANCH - READONLY from Login (Shows Name) */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Branch <Text style={styles.required}>*</Text></Text>
-              <View style={[styles.dropdown, styles.readonlyField]}>
-                <Text style={styles.dropdownText}>
-                  {branchName || 'No branch selected'}
-                </Text>
-              </View>
-              {errors.branch && <Text style={styles.errorText}>{errors.branch}</Text>}
-            </View>
-
-            {/* 2. CUSTOMER NAME */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Customer Name <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, errors.customerName && styles.errorBorder]}
-                placeholder="Enter customer name"
-                placeholderTextColor="#B0A090"
-                value={customerName}
-                onChangeText={(text) => {
-                  setCustomerName(text);
-                  setErrors(prev => ({ ...prev, customerName: '' }));
-                }}
-              />
-              {errors.customerName && <Text style={styles.errorText}>{errors.customerName}</Text>}
-            </View>
-
-            {/* 3. MOBILE NUMBER */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, errors.mobileNumber && styles.errorBorder]}
-                placeholder="Enter 10-digit mobile number"
-                placeholderTextColor="#B0A090"
-                value={mobileNumber}
-                onChangeText={(text) => {
-                  const cleaned = text.replace(/[^0-9]/g, '');
-                  setMobileNumber(cleaned);
-                  setErrors(prev => ({ ...prev, mobileNumber: '' }));
-                }}
-                keyboardType="phone-pad"
-                maxLength={10}
-              />
-              {errors.mobileNumber && <Text style={styles.errorText}>{errors.mobileNumber}</Text>}
-            </View>
-
-            {/* 4. POSTAL CODE */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Postal Code <Text style={styles.required}>*</Text></Text>
-              <View style={styles.postalContainer}>
-                <TextInput
-                  style={[styles.input, styles.postalInput, errors.postalCode && styles.errorBorder]}
-                  placeholder="Enter 6-digit pincode"
-                  placeholderTextColor="#B0A090"
-                  value={postalCode}
-                  onChangeText={handlePostalCodeChange}
-                  keyboardType="phone-pad"
-                  maxLength={6}
-                />
-                {loading && <ActivityIndicator size="small" color="#D4AF37" style={styles.loader} />}
-              </View>
-              {errors.postalCode && <Text style={styles.errorText}>{errors.postalCode}</Text>}
-            </View>
-
-            {/* 5. AREA */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Area <Text style={styles.required}>*</Text></Text>
-              <TouchableOpacity
-                style={[
-                  styles.dropdown, 
-                  errors.area && styles.errorBorder,
-                  area && styles.readonlyField
-                ]}
-                onPress={() => {
-                  if (areaOptions.length > 0) {
-                    setModalVisible(true);
-                  } else {
-                    if (Platform.OS === 'web') {
-                      window.alert('Please enter a valid pincode first.');
-                    } else {
-                      Alert.alert('No Areas', 'Please enter a valid pincode first.');
-                    }
-                  }
-                }}
-                disabled={!areaOptions.length}
-              >
-                <Text style={area ? styles.dropdownText : styles.placeholderText}>
-                  {area || 'Select Area (Enter pincode first)'}
-                </Text>
-                {areaOptions.length > 0 && <Text style={styles.dropdownArrow}>▼</Text>}
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <Text style={styles.backButtonText}>‹</Text>
               </TouchableOpacity>
-              {errors.area && <Text style={styles.errorText}>{errors.area}</Text>}
+              <Text style={styles.headerTitle}>Customer Quick Entry</Text>
+              <View style={styles.headerSpacer} />
             </View>
 
-            {/* 6. CITY */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>City</Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField]}
-                placeholder="Auto-filled from area selection"
-                placeholderTextColor="#B0A090"
-                value={city}
-                editable={false}
+            {/* Gold Line */}
+            <View style={styles.goldLine} />
+
+            {/* ===== FORM ===== */}
+            <View style={styles.formContainer}>
+
+              {/* 1. BRANCH - READONLY */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Branch <Text style={styles.required}>*</Text></Text>
+                <View style={[styles.dropdown, styles.readonlyField]}>
+                  <Text style={styles.dropdownText}>
+                    {branchName || 'No branch selected'}
+                  </Text>
+                </View>
+                {errors.branch && <Text style={styles.errorText}>{errors.branch}</Text>}
+              </View>
+
+              {/* 2. CUSTOMER NAME */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Customer Name <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, errors.customerName && styles.errorBorder]}
+                  placeholder="Enter customer name"
+                  placeholderTextColor="#B0A090"
+                  value={customerName}
+                  onChangeText={(text) => {
+                    setCustomerName(text);
+                    setErrors(prev => ({ ...prev, customerName: '' }));
+                  }}
+                />
+                {errors.customerName && <Text style={styles.errorText}>{errors.customerName}</Text>}
+              </View>
+
+              {/* 3. MOBILE NUMBER */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, errors.mobileNumber && styles.errorBorder]}
+                  placeholder="Enter 10-digit mobile number"
+                  placeholderTextColor="#B0A090"
+                  value={mobileNumber}
+                  onChangeText={(text) => {
+                    const cleaned = text.replace(/[^0-9]/g, '');
+                    setMobileNumber(cleaned);
+                    setErrors(prev => ({ ...prev, mobileNumber: '' }));
+                  }}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+                {errors.mobileNumber && <Text style={styles.errorText}>{errors.mobileNumber}</Text>}
+              </View>
+
+              {/* 4. POSTAL CODE */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Postal Code <Text style={styles.required}>*</Text></Text>
+                <View style={styles.postalContainer}>
+                  <TextInput
+                    style={[styles.input, styles.postalInput, errors.postalCode && styles.errorBorder]}
+                    placeholder="Enter 6-digit pincode"
+                    placeholderTextColor="#B0A090"
+                    value={postalCode}
+                    onChangeText={handlePostalCodeChange}
+                    keyboardType="phone-pad"
+                    maxLength={6}
+                  />
+                  {loading && <ActivityIndicator size="small" color="#D4AF37" style={styles.loader} />}
+                </View>
+                {errors.postalCode && <Text style={styles.errorText}>{errors.postalCode}</Text>}
+              </View>
+
+              {/* 5. AREA */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Area <Text style={styles.required}>*</Text></Text>
+                <TouchableOpacity
+                  style={[
+                    styles.dropdown, 
+                    errors.area && styles.errorBorder,
+                    area && styles.readonlyField
+                  ]}
+                  onPress={() => {
+                    if (areaOptions.length > 0) {
+                      setModalVisible(true);
+                    } else {
+                      if (Platform.OS === 'web') {
+                        window.alert('Please enter a valid pincode first.');
+                      } else {
+                        Alert.alert('No Areas', 'Please enter a valid pincode first.');
+                      }
+                    }
+                  }}
+                  disabled={!areaOptions.length}
+                >
+                  <Text style={area ? styles.dropdownText : styles.placeholderText}>
+                    {area || 'Select Area (Enter pincode first)'}
+                  </Text>
+                  {areaOptions.length > 0 && <Text style={styles.dropdownArrow}>▼</Text>}
+                </TouchableOpacity>
+                {errors.area && <Text style={styles.errorText}>{errors.area}</Text>}
+              </View>
+
+              {/* 6. CITY */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>City</Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField]}
+                  placeholder="Auto-filled from area selection"
+                  placeholderTextColor="#B0A090"
+                  value={city}
+                  editable={false}
+                />
+              </View>
+
+            </View>
+
+            {/* ===== BUTTONS ===== */}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity 
+                style={[styles.button, styles.cancelButton]} 
+                onPress={handleCancel}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.button, styles.saveButton]} 
+                onPress={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Bottom Gold Accent Line */}
+            <View style={styles.bottomGoldLine} />
+          </ScrollView>
+        </View>
+
+        {/* ===== AREA MODAL ===== */}
+        <Modal
+          transparent
+          visible={modalVisible}
+          animationType="fade"
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setModalVisible(false)}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Area</Text>
+              <FlatList
+                data={areaOptions}
+                keyExtractor={(item) => item}
+                renderItem={renderAreaItem}
+                showsVerticalScrollIndicator={false}
               />
             </View>
-
-          </View>
-
-          {/* ===== BUTTONS ===== */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.button, styles.cancelButton]} 
-              onPress={handleCancel}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.button, styles.saveButton]} 
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+          </TouchableOpacity>
+        </Modal>
       </View>
-
-      {/* ===== AREA MODAL ===== */}
-      <Modal
-        transparent
-        visible={modalVisible}
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Area</Text>
-            <FlatList
-              data={areaOptions}
-              keyExtractor={(item) => item}
-              renderItem={renderAreaItem}
-              showsVerticalScrollIndicator={false}
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    backgroundColor: '#FDF8F0',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FDF8F0',
@@ -460,9 +482,20 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 20,
     paddingVertical: 30,
+    paddingBottom: 40,
     ...(Platform.OS === 'web' && {
       minHeight: '100%',
     }),
+  },
+
+  // ===== TOP GOLD LINE =====
+  topGoldLine: {
+    width: 50,
+    height: 2,
+    backgroundColor: '#D4AF37',
+    borderRadius: 1,
+    marginBottom: 15,
+    alignSelf: 'center',
   },
 
   // ===== HEADER =====
@@ -481,7 +514,7 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#D4AF37',
     letterSpacing: 1,
@@ -489,12 +522,24 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
+
+  // ===== GOLD LINE =====
   goldLine: {
     width: 50,
     height: 2,
     backgroundColor: '#D4AF37',
     borderRadius: 1,
     marginBottom: 25,
+    alignSelf: 'center',
+  },
+
+  // ===== BOTTOM GOLD LINE =====
+  bottomGoldLine: {
+    width: 50,
+    height: 2,
+    backgroundColor: '#D4AF37',
+    borderRadius: 1,
+    marginTop: 20,
     alignSelf: 'center',
   },
 

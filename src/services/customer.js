@@ -89,23 +89,30 @@ export const customerService = {
   },
 
   // ✅ Save Chit Details
-  saveChit: async (data) => {
-    try {
-      const response = await api.post('/customer/chit', data);
-      return {
-        success: true,
-        data: response.data,
-        message: 'Chit details saved successfully!',
-      };
-    } catch (error) {
-      console.log('Save Chit error:', error);
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Failed to save chit details. Please try again.',
-      };
-    }
-  },
+  // ✅ Save Chit Details - WITH BETTER ERROR LOGGING
+saveChit: async (data) => {
+  try {
+    const response = await api.post('/chitcustomerreg/chitnewcusreg', data);
+    console.log('✅ Save Chit response:', response.data);
+    return {
+      success: true,
+      data: response.data,
+      message: response.data.message || 'Chit details saved successfully!',
+    };
+  } catch (error) {
+    console.log('❌ Save Chit error:', error);
+    console.log('❌ Error response status:', error.response?.status);
+    console.log('❌ Error response data:', JSON.stringify(error.response?.data, null, 2));
+    console.log('❌ Error response headers:', error.response?.headers);
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to save chit details. Please try again.',
+    };
+  }
+},
 
+
+  
   // ✅ Fetch Amount List
   getAmounts: async () => {
     try {
@@ -273,27 +280,61 @@ export const customerService = {
     }
   },
 
-  // ✅ Fetch Canvas Types from Backend
+ // ✅ Fetch Canvas Types from Backend
 getCanvasTypes: async () => {
   try {
-    const response = await api.get('/chitcustomerreg/canvastypes');
+    const response = await api.get('/chitcustomerreg/chitcantype');
     console.log('✅ Canvas Types response:', response.data);
     
-    if (response.data && response.data.success && response.data.canvasTypes) {
-      return {
-        success: true,
-        data: response.data.canvasTypes,
-      };
+    // ✅ Check if response is successful and has branches
+    if (response.data) {
+      // Check for branches array format (from your Postman response)
+      if (response.data.success === true && Array.isArray(response.data.branches)) {
+        const canvasNames = response.data.branches
+          .map(item => item.CCANTPYENAME || item.name || item.canvasType || '')
+          .filter(name => name !== '');
+        
+        console.log('✅ Canvas types extracted:', canvasNames);
+        
+        if (canvasNames.length > 0) {
+          return {
+            success: true,
+            data: canvasNames,
+          };
+        }
+      }
+      
+      // Check for canvasTypes array format
+      if (Array.isArray(response.data.canvasTypes)) {
+        return {
+          success: true,
+          data: response.data.canvasTypes,
+        };
+      }
+      
+      // Check if response.data is directly an array
+      if (Array.isArray(response.data)) {
+        // Try to extract names from objects
+        const names = response.data.map(item => 
+          item.CCANTPYENAME || item.name || item.canvasType || String(item)
+        ).filter(name => name !== '');
+        
+        if (names.length > 0) {
+          return {
+            success: true,
+            data: names,
+          };
+        }
+        
+        return {
+          success: true,
+          data: response.data,
+        };
+      }
     }
     
-    // If response format is different, try to extract
-    if (Array.isArray(response.data)) {
-      return {
-        success: true,
-        data: response.data,
-      };
-    }
-    
+    // ✅ If we reach here, format is invalid
+    console.log('⚠️ Invalid response format, using fallback');
     return {
       success: false,
       message: 'Invalid response format from server.',

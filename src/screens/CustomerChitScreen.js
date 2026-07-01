@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -50,6 +51,7 @@ const CustomerChitScreen = ({ navigation }) => {
   const [amount, setAmount] = useState('');
   const [cardNo, setCardNo] = useState('');
   const [chitCanvasType, setChitCanvasType] = useState('');
+  const [selectedCanvasId, setSelectedCanvasId] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [maturityDate, setMaturityDate] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -71,7 +73,7 @@ const CustomerChitScreen = ({ navigation }) => {
   const [fetchingGroupDetails, setFetchingGroupDetails] = useState(false);
 
   // ===== CANVAS TYPES - Dynamic from Backend with Fallback =====
-  const [canvasTypes, setCanvasTypes] = useState(['Type 1', 'Type 2']);
+  const [canvasTypes, setCanvasTypes] = useState([]);
   const [loadingCanvasTypes, setLoadingCanvasTypes] = useState(false);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -156,7 +158,7 @@ const CustomerChitScreen = ({ navigation }) => {
   }, [navigation]);
 
   const populateCustomerFields = (customer) => {
-    setCustomerName(customer.customerName || customer.name || customer.CUSNAME || '');
+    setCustomerName(customer.customerName || customer.name || customer.CCUSNAM || '');
     setAddress1(customer.cusadd1 || customer.address1 || customer.CUSADD1 || '');
     setAddress2(customer.cusadd2 || customer.address2 || customer.CUSADD2 || '');
     setPincode(customer.CUSPINCODE || customer.pincode || customer.postalCode || '');
@@ -320,17 +322,24 @@ const CustomerChitScreen = ({ navigation }) => {
       console.log('📥 Canvas Types Result:', result);
       
       if (result.success && result.data && result.data.length > 0) {
-        setCanvasTypes(result.data);
-        console.log('✅ Canvas types loaded:', result.data);
+        const canvasData = result.data.map(item => ({
+          id: item.CCANTPYECODE || item.id || '',
+          name: item.CCANTPYENAME || item.name || item,
+        }));
+        setCanvasTypes(canvasData);
+        console.log('✅ Canvas types loaded:', canvasData);
       } else {
-        // Keep static fallback
-        console.log('⚠️ Using static canvas types as fallback');
-        setCanvasTypes(['Type 1', 'Type 2']);
+        setCanvasTypes([
+          { id: '1', name: 'Type 1' },
+          { id: '2', name: 'Type 2' },
+        ]);
       }
     } catch (error) {
       console.log('❌ Error fetching canvas types:', error);
-      // Keep static fallback on error
-      setCanvasTypes(['Type 1', 'Type 2']);
+      setCanvasTypes([
+        { id: '1', name: 'Type 1' },
+        { id: '2', name: 'Type 2' },
+      ]);
     } finally {
       setLoadingCanvasTypes(false);
     }
@@ -366,7 +375,7 @@ const CustomerChitScreen = ({ navigation }) => {
 
   useEffect(() => {
     fetchAmounts();
-    fetchCanvasTypes(); // ✅ Fetch canvas types on screen load
+    fetchCanvasTypes();
   }, []);
 
   useEffect(() => {
@@ -423,12 +432,13 @@ const CustomerChitScreen = ({ navigation }) => {
     <TouchableOpacity
       style={styles.dropdownItem}
       onPress={() => {
-        setChitCanvasType(item);
+        setChitCanvasType(item.name);
+        setSelectedCanvasId(item.id);
         setCanvasModalVisible(false);
         setErrors(prev => ({ ...prev, chitCanvasType: '' }));
       }}
     >
-      <Text style={styles.dropdownItemText}>{item}</Text>
+      <Text style={styles.dropdownItemText}>{item.name}</Text>
     </TouchableOpacity>
   );
 
@@ -504,30 +514,90 @@ const CustomerChitScreen = ({ navigation }) => {
     return valid;
   };
 
+  // ===== CITY CODE MAPPING =====
+  const getCityCode = (cityName) => {
+    const cityMap = {
+      'Erode': 1,
+      'Karur': 2,
+      'Ooty': 3,
+      'Trichy': 4,
+      'Vellore': 5,
+      'Kumbakonam': 6,
+      'Thanjavur': 7,
+      'Pudhukottai': 8,
+      'Chennai': 9,
+      'Coimbatore': 10,
+      'Madurai': 11,
+      'Salem': 12,
+      // Add more cities as needed
+    };
+    return cityMap[cityName] || 0;
+  };
+
+  // ===== SAVE CHIT WITH CORRECT FIELD NAMES =====
   const handleSave = async () => {
     if (validate()) {
       setSaving(true);
 
-      const formData = {
-        branch: selectedBranch,
-        mobileNo: mobileNo,
-        amount: parseFloat(amount),
-        groupName: groupName,
-        groupNo: groupNo,
-        noOfInstallment: parseInt(noOfInstallment),
-        cardNo: cardNo,
-        chitCanvasType: chitCanvasType,
-        maturityDate: maturityDate,
-        customerName: customerName,
-        address1: address1,
-        address2: address2,
-        pincode: pincode,
-        area: area,
-        city: city,
-        mailId: mailId,
+      const formatDateForBackend = (dateString) => {
+        if (!dateString) return null;
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          const day = parts[0].padStart(2, '0');
+          const month = parts[1].padStart(2, '0');
+          const year = parts[2];
+          return `${year}-${month}-${day}`;
+        }
+        return null;
       };
 
-      console.log('📤 Sending Chit Data:', formData);
+      // ✅ Get city code
+      const cityCode = getCityCode(city);
+
+      // ✅ DEBUG: Log all values
+      console.log('🔍 ===== DEBUG VALUES =====');
+      console.log('groupName:', groupName);
+      console.log('groupNo:', groupNo);
+      console.log('selectedCanvasId:', selectedCanvasId);
+      console.log('chitCanvasType (name):', chitCanvasType);
+      console.log('city (name):', city);
+      console.log('cityCode:', cityCode);
+      console.log('selectedBranch:', selectedBranch);
+      console.log('===========================');
+
+      const formData = {
+        // Group Details
+        groupName: groupName,
+        chitGrpNo: parseInt(groupNo) || 0,
+        
+        // Customer Details
+        custName: customerName,
+        address1: address1,
+        address2: address2,
+        address3: area,
+        // ✅ Send city CODE (numeric) not city name
+        cityCode: cityCode,
+        phoneNo: mobileNo,
+        barcode: cardNo,
+        
+        // Chit Details
+        maturedt: formatDateForBackend(maturityDate),
+        // ✅ Send Canvas ID (numeric) not name
+        canvasType: parseInt(selectedCanvasId) || 0,
+        CCANVASTYPE: parseInt(selectedCanvasId) || 0,
+        
+        // Optional fields
+        empCode: '',
+        remarks: '',
+        idproof: '',
+        idproofname: '',
+        id_sw_ca: '',
+        center: '',
+        addUser: '',
+        branch: selectedBranch,
+      };
+
+      console.log('📤 Sending Chit Data:', JSON.stringify(formData, null, 2));
 
       try {
         const result = await customerService.saveChit(formData);
@@ -558,6 +628,7 @@ const CustomerChitScreen = ({ navigation }) => {
         }
       } catch (error) {
         setSaving(false);
+        console.log('❌ Save error:', error.response?.data);
         if (Platform.OS === 'web') {
           window.alert('❌ Failed to save. Please try again.');
         } else {
@@ -591,6 +662,7 @@ const CustomerChitScreen = ({ navigation }) => {
     setNoOfInstallment('');
     setCardNo('');
     setChitCanvasType('');
+    setSelectedCanvasId('');
     setMobileNo('');
     setMaturityDate('');
     setCustomerName('');
@@ -605,410 +677,439 @@ const CustomerChitScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.scrollContainer}>
-        <ScrollView
-          ref={scrollViewRef}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.contentContainer}
-          style={styles.scrollView}
-          nestedScrollEnabled={true}
-          scrollEnabled={true}
-        >
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Text style={styles.backButtonText}>‹</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Customer Chit</Text>
-            <View style={styles.headerSpacer} />
-          </View>
+    <ImageBackground
+      source={require('../assets/images/pattern.png')}
+      style={styles.backgroundImage}
+      imageStyle={{ opacity: 0.12 }}
+      resizeMode="cover"
+    >
+      <View style={styles.container}>
+        <View style={styles.scrollContainer}>
+          <ScrollView
+            ref={scrollViewRef}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.contentContainer}
+            style={styles.scrollView}
+            nestedScrollEnabled={true}
+            scrollEnabled={true}
+          >
+            {/* Top Gold Line */}
+            <View style={styles.topGoldLine} />
 
-          <View style={styles.goldLine} />
-
-          <View style={styles.formContainer}>
-            <View ref={fieldRefs.mobileNo} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, errors.mobileNo && styles.errorBorder]}
-                placeholder="Enter 10-digit mobile number"
-                placeholderTextColor="#B0A090"
-                value={mobileNo}
-                keyboardType="phone-pad"
-                maxLength={10}
-                onChangeText={(text) => {
-                  handleMobileChange(text);
-                  setErrors(prev => ({ ...prev, mobileNo: '' }));
-                }}
-              />
-              {fetchingCustomer && <Text style={styles.fetchingText}>🔍 Searching for customer...</Text>}
-              {errors.mobileNo && <Text style={styles.errorText}>{errors.mobileNo}</Text>}
-              <Text style={styles.hintText}>Enter registered mobile to auto-fill customer details</Text>
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Customer Name</Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField]}
-                placeholder="Auto-filled from mobile"
-                placeholderTextColor="#B0A090"
-                value={customerName}
-                editable={false}
-              />
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Address 1</Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField]}
-                placeholder="Auto-filled from mobile"
-                placeholderTextColor="#B0A090"
-                value={address1}
-                editable={false}
-              />
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Address 2</Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField]}
-                placeholder="Auto-filled from mobile"
-                placeholderTextColor="#B0A090"
-                value={address2}
-                editable={false}
-              />
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Pincode</Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField]}
-                placeholder="Auto-filled from mobile"
-                placeholderTextColor="#B0A090"
-                value={pincode}
-                editable={false}
-              />
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Area</Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField]}
-                placeholder="Auto-filled from mobile"
-                placeholderTextColor="#B0A090"
-                value={area}
-                editable={false}
-              />
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>City</Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField]}
-                placeholder="Auto-filled from mobile"
-                placeholderTextColor="#B0A090"
-                value={city}
-                editable={false}
-              />
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Mail id</Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField]}
-                placeholder="Auto-filled from mobile"
-                placeholderTextColor="#B0A090"
-                value={mailId}
-                editable={false}
-              />
-            </View>
-
-            <View ref={fieldRefs.amount} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text>
-              <TouchableOpacity
-                style={[styles.dropdown, errors.amount && styles.errorBorder]}
-                onPress={() => {
-                  if (amountOptions.length > 0) {
-                    setAmountModalVisible(true);
-                  } else {
-                    if (Platform.OS === 'web') {
-                      window.alert('No amounts available. Please try again later.');
-                    } else {
-                      Alert.alert('No Amounts', 'No amounts available. Please try again later.');
-                    }
-                  }
-                }}
-                disabled={loadingAmounts}
-              >
-                <Text style={amount ? styles.dropdownText : styles.placeholderText}>
-                  {loadingAmounts ? 'Loading amounts...' : (amount ? `₹ ${amount}` : 'Select Amount')}                </Text>
-                <Text style={styles.dropdownArrow}>▼</Text>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <Text style={styles.backButtonText}>‹</Text>
               </TouchableOpacity>
-              {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
+              <Text style={styles.headerTitle}>Customer Chit</Text>
+              <View style={styles.headerSpacer} />
             </View>
 
-            <View ref={fieldRefs.groupName} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Group Name <Text style={styles.required}>*</Text></Text>
-              <TouchableOpacity
-                style={[styles.dropdown, errors.groupName && styles.errorBorder]}
-                onPress={() => {
-                  if (!amount) {
-                    if (Platform.OS === 'web') {
-                      window.alert('Please select an amount first.');
-                    } else {
-                      Alert.alert('Select Amount First', 'Please select an amount first.');
-                    }
-                    return;
-                  }
-                  if (groupOptions.length > 0) {
-                    setGroupModalVisible(true);
-                  } else {
-                    if (Platform.OS === 'web') {
-                      window.alert('No groups available for this amount.');
-                    } else {
-                      Alert.alert('No Groups', 'No groups available for this amount.');
-                    }
-                  }
-                }}
-                disabled={loadingGroups || !amount}
-              >
-                <Text style={groupName ? styles.dropdownText : styles.placeholderText}>
-                  {loadingGroups ? 'Loading groups...' : (groupName || 'Select Group')}
-                </Text>
-                <Text style={styles.dropdownArrow}>▼</Text>
-              </TouchableOpacity>
-              {errors.groupName && <Text style={styles.errorText}>{errors.groupName}</Text>}
-            </View>
+            <View style={styles.goldLine} />
 
-            <View ref={fieldRefs.groupNo} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Group No <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField, errors.groupNo && styles.errorBorder]}
-                placeholder="Auto-filled from group selection"
-                placeholderTextColor="#B0A090"
-                value={groupNo}
-                editable={false}
-              />
-              {fetchingGroupDetails && <Text style={styles.fetchingText}>⏳ Loading group details...</Text>}
-              {errors.groupNo && <Text style={styles.errorText}>{errors.groupNo}</Text>}
-            </View>
+            <View style={styles.formContainer}>
+              <View ref={fieldRefs.mobileNo} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, errors.mobileNo && styles.errorBorder]}
+                  placeholder="Enter 10-digit mobile number"
+                  placeholderTextColor="#B0A090"
+                  value={mobileNo}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  onChangeText={(text) => {
+                    handleMobileChange(text);
+                    setErrors(prev => ({ ...prev, mobileNo: '' }));
+                  }}
+                />
+                {fetchingCustomer && <Text style={styles.fetchingText}>🔍 Searching for customer...</Text>}
+                {errors.mobileNo && <Text style={styles.errorText}>{errors.mobileNo}</Text>}
+                <Text style={styles.hintText}>Enter registered mobile to auto-fill customer details</Text>
+              </View>
 
-            <View ref={fieldRefs.noOfInstallment} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>No of Installment <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, styles.readonlyField, errors.noOfInstallment && styles.errorBorder]}
-                placeholder="Auto-filled from group selection"
-                placeholderTextColor="#B0A090"
-                value={noOfInstallment}
-                editable={false}
-              />
-              {errors.noOfInstallment && <Text style={styles.errorText}>{errors.noOfInstallment}</Text>}
-            </View>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Customer Name</Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField]}
+                  placeholder="Auto-filled from mobile"
+                  placeholderTextColor="#B0A090"
+                  value={customerName}
+                  editable={false}
+                />
+              </View>
 
-            <View ref={fieldRefs.scanBarcode} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Scan Card Barcode</Text>
-              <View style={styles.rowContainer}>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Address 1</Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField]}
+                  placeholder="Auto-filled from mobile"
+                  placeholderTextColor="#B0A090"
+                  value={address1}
+                  editable={false}
+                />
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Address 2</Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField]}
+                  placeholder="Auto-filled from mobile"
+                  placeholderTextColor="#B0A090"
+                  value={address2}
+                  editable={false}
+                />
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Pincode</Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField]}
+                  placeholder="Auto-filled from mobile"
+                  placeholderTextColor="#B0A090"
+                  value={pincode}
+                  editable={false}
+                />
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Area</Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField]}
+                  placeholder="Auto-filled from mobile"
+                  placeholderTextColor="#B0A090"
+                  value={area}
+                  editable={false}
+                />
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>City</Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField]}
+                  placeholder="Auto-filled from mobile"
+                  placeholderTextColor="#B0A090"
+                  value={city}
+                  editable={false}
+                />
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Mail id</Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField]}
+                  placeholder="Auto-filled from mobile"
+                  placeholderTextColor="#B0A090"
+                  value={mailId}
+                  editable={false}
+                />
+              </View>
+
+              <View ref={fieldRefs.amount} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text>
                 <TouchableOpacity
-                  style={styles.scanButton}
-                  onPress={() => navigation.navigate('BarcodeScanner')}
+                  style={[styles.dropdown, errors.amount && styles.errorBorder]}
+                  onPress={() => {
+                    if (amountOptions.length > 0) {
+                      setAmountModalVisible(true);
+                    } else {
+                      if (Platform.OS === 'web') {
+                        window.alert('No amounts available. Please try again later.');
+                      } else {
+                        Alert.alert('No Amounts', 'No amounts available. Please try again later.');
+                      }
+                    }
+                  }}
+                  disabled={loadingAmounts}
                 >
-                  <Text style={styles.scanButtonIcon}>📷</Text>
-                  <Text style={styles.scanButtonText}>Scan</Text>
+                  <Text style={amount ? styles.dropdownText : styles.placeholderText}>
+                    {loadingAmounts ? 'Loading amounts...' : (amount ? `₹ ${amount}` : 'Select Amount')}
+                  </Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
                 </TouchableOpacity>
-                <Text style={styles.scanHint}>Tap to scan barcode</Text>
+                {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
+              </View>
+
+              <View ref={fieldRefs.groupName} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>Group Name <Text style={styles.required}>*</Text></Text>
+                <TouchableOpacity
+                  style={[styles.dropdown, errors.groupName && styles.errorBorder]}
+                  onPress={() => {
+                    if (!amount) {
+                      if (Platform.OS === 'web') {
+                        window.alert('Please select an amount first.');
+                      } else {
+                        Alert.alert('Select Amount First', 'Please select an amount first.');
+                      }
+                      return;
+                    }
+                    if (groupOptions.length > 0) {
+                      setGroupModalVisible(true);
+                    } else {
+                      if (Platform.OS === 'web') {
+                        window.alert('No groups available for this amount.');
+                      } else {
+                        Alert.alert('No Groups', 'No groups available for this amount.');
+                      }
+                    }
+                  }}
+                  disabled={loadingGroups || !amount}
+                >
+                  <Text style={groupName ? styles.dropdownText : styles.placeholderText}>
+                    {loadingGroups ? 'Loading groups...' : (groupName || 'Select Group')}
+                  </Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
+                </TouchableOpacity>
+                {errors.groupName && <Text style={styles.errorText}>{errors.groupName}</Text>}
+              </View>
+
+              <View ref={fieldRefs.groupNo} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>Group No <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField, errors.groupNo && styles.errorBorder]}
+                  placeholder="Auto-filled from group selection"
+                  placeholderTextColor="#B0A090"
+                  value={groupNo}
+                  editable={false}
+                />
+                {fetchingGroupDetails && <Text style={styles.fetchingText}>⏳ Loading group details...</Text>}
+                {errors.groupNo && <Text style={styles.errorText}>{errors.groupNo}</Text>}
+              </View>
+
+              <View ref={fieldRefs.noOfInstallment} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>No of Installment <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField, errors.noOfInstallment && styles.errorBorder]}
+                  placeholder="Auto-filled from group selection"
+                  placeholderTextColor="#B0A090"
+                  value={noOfInstallment}
+                  editable={false}
+                />
+                {errors.noOfInstallment && <Text style={styles.errorText}>{errors.noOfInstallment}</Text>}
+              </View>
+
+              <View ref={fieldRefs.scanBarcode} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>Scan Card Barcode</Text>
+                <View style={styles.rowContainer}>
+                  <TouchableOpacity
+                    style={styles.scanButton}
+                    onPress={() => navigation.navigate('BarcodeScanner')}
+                  >
+                    <Text style={styles.scanButtonIcon}>📷</Text>
+                    <Text style={styles.scanButtonText}>Scan</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.scanHint}>Tap to scan barcode</Text>
+                </View>
+              </View>
+
+              {/* 14. CARD NO - READONLY */}
+              <View ref={fieldRefs.cardNo} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>Card No <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, styles.readonlyField, errors.cardNo && styles.errorBorder]}
+                  placeholder="Auto-filled from barcode scan"
+                  placeholderTextColor="#B0A090"
+                  value={cardNo}
+                  editable={false}
+                />
+                {errors.cardNo && <Text style={styles.errorText}>{errors.cardNo}</Text>}
+              </View>
+
+              {/* 15. CHIT CANVAS TYPE - DYNAMIC WITH FALLBACK */}
+              <View ref={fieldRefs.chitCanvasType} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>
+                  Chit Canvas Type <Text style={styles.required}>*</Text>
+                </Text>
+                <TouchableOpacity
+                  style={[styles.dropdown, errors.chitCanvasType && styles.errorBorder]}
+                  onPress={() => {
+                    if (canvasTypes.length > 0) {
+                      setCanvasModalVisible(true);
+                    } else {
+                      if (Platform.OS === 'web') {
+                        window.alert('No canvas types available. Please try again later.');
+                      } else {
+                        Alert.alert('No Canvas Types', 'No canvas types available. Please try again later.');
+                      }
+                    }
+                  }}
+                  disabled={loadingCanvasTypes}
+                >
+                  <Text style={chitCanvasType ? styles.dropdownText : styles.placeholderText}>
+                    {loadingCanvasTypes ? 'Loading canvas types...' : (chitCanvasType || 'Select Canvas Type')}
+                  </Text>
+                  <Text style={styles.dropdownArrow}>▼</Text>
+                </TouchableOpacity>
+                {errors.chitCanvasType && <Text style={styles.errorText}>{errors.chitCanvasType}</Text>}
+              </View>
+
+              <View ref={fieldRefs.maturityDate} style={styles.fieldContainer} collapsable={false}>
+                <Text style={styles.label}>Maturity Date <Text style={styles.required}>*</Text></Text>
+                {Platform.OS === 'web' ? (
+                  <input
+                    type="date"
+                    value={formatDateForInput(maturityDate)}
+                    onChange={onWebDateChange}
+                    min={new Date().toISOString().split('T')[0]}
+                    style={{
+                      width: '100%',
+                      padding: '12px 15px',
+                      fontSize: '15px',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(212, 175, 55, 0.15)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                      color: '#1A1108',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.datePickerButton, errors.maturityDate && styles.errorBorder]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={maturityDate ? styles.datePickerText : styles.placeholderText}>
+                      {maturityDate || 'Select Maturity Date'}
+                    </Text>
+                    <Text style={styles.datePickerIcon}>📅</Text>
+                  </TouchableOpacity>
+                )}
+                {errors.maturityDate && <Text style={styles.errorText}>{errors.maturityDate}</Text>}
               </View>
             </View>
 
-            <View ref={fieldRefs.cardNo} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Card No <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, errors.cardNo && styles.errorBorder]}
-                placeholder="Enter card number"
-                placeholderTextColor="#B0A090"
-                value={cardNo}
-                onChangeText={(text) => {
-                  setCardNo(text);
-                  setErrors(prev => ({ ...prev, cardNo: '' }));
-                }}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave} disabled={saving}>
+                {saving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Bottom Gold Line */}
+            <View style={styles.bottomGoldLine} />
+          </ScrollView>
+        </View>
+
+        <Modal
+          transparent
+          visible={amountModalVisible}
+          animationType="fade"
+          onRequestClose={() => setAmountModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setAmountModalVisible(false)}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Amount</Text>
+              <FlatList
+                data={amountOptions}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={renderAmountItem}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={<Text style={styles.emptyText}>No amounts available</Text>}
               />
-              {errors.cardNo && <Text style={styles.errorText}>{errors.cardNo}</Text>}
             </View>
+          </TouchableOpacity>
+        </Modal>
 
-           {/* 15. CHIT CANVAS TYPE - DYNAMIC WITH FALLBACK */}
-<View ref={fieldRefs.chitCanvasType} style={styles.fieldContainer} collapsable={false}>
-  <Text style={styles.label}>
-    Chit Canvas Type <Text style={styles.required}>*</Text>
-  </Text>
-  <TouchableOpacity
-    style={[styles.dropdown, errors.chitCanvasType && styles.errorBorder]}
-    onPress={() => {
-      if (canvasTypes.length > 0) {
-        setCanvasModalVisible(true);
-      } else {
-        if (Platform.OS === 'web') {
-          window.alert('No canvas types available. Please try again later.');
-        } else {
-          Alert.alert('No Canvas Types', 'No canvas types available. Please try again later.');
-        }
-      }
-    }}
-    disabled={loadingCanvasTypes}
-  >
-    <Text style={chitCanvasType ? styles.dropdownText : styles.placeholderText}>
-      {loadingCanvasTypes ? 'Loading canvas types...' : (chitCanvasType || 'Select Canvas Type')}
-    </Text>
-    <Text style={styles.dropdownArrow}>▼</Text>
-  </TouchableOpacity>
-  {errors.chitCanvasType && <Text style={styles.errorText}>{errors.chitCanvasType}</Text>}
-</View>
-            <View ref={fieldRefs.maturityDate} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Maturity Date <Text style={styles.required}>*</Text></Text>
-              {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(maturityDate)}
-                  onChange={onWebDateChange}
-                  min={new Date().toISOString().split('T')[0]}
-                  style={{
-                    width: '100%',
-                    padding: '12px 15px',
-                    fontSize: '15px',
-                    borderRadius: '10px',
-                    border: '1px solid rgba(212, 175, 55, 0.15)', backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    color: '#1A1108',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              ) : (
-                <TouchableOpacity
-                  style={[styles.datePickerButton, errors.maturityDate && styles.errorBorder]}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Text style={maturityDate ? styles.datePickerText : styles.placeholderText}>
-                    {maturityDate || 'Select Maturity Date'}
-                  </Text>
-                  <Text style={styles.datePickerIcon}>📅</Text>
-                </TouchableOpacity>
-              )}
-              {errors.maturityDate && <Text style={styles.errorText}>{errors.maturityDate}</Text>}
+        <Modal
+          transparent
+          visible={groupModalVisible}
+          animationType="fade"
+          onRequestClose={() => setGroupModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setGroupModalVisible(false)}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Group</Text>
+              <FlatList
+                data={groupOptions}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={renderGroupItem}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={<Text style={styles.emptyText}>No groups available</Text>}
+              />
             </View>
-          </View>
+          </TouchableOpacity>
+        </Modal>
 
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave} disabled={saving}>
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+        <Modal
+          transparent
+          visible={canvasModalVisible}
+          animationType="fade"
+          onRequestClose={() => setCanvasModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setCanvasModalVisible(false)}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Canvas Type</Text>
+              <FlatList
+                data={canvasTypes}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={renderCanvasItem}
+                showsVerticalScrollIndicator={false}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {Platform.OS !== 'web' && showDatePicker && (
+          <DateTimePicker
+            value={tempDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selectedDate) => {
+              if (Platform.OS === 'android') {
+                setShowDatePicker(false);
+              }
+              if (selectedDate) {
+                setMaturityDate(formatDate(selectedDate));
+                setTempDate(selectedDate);
+                setErrors(prev => ({ ...prev, maturityDate: '' }));
+              }
+            }}
+            minimumDate={new Date()}
+          />
+        )}
       </View>
-
-      <Modal
-        transparent
-        visible={amountModalVisible}
-        animationType="fade"
-        onRequestClose={() => setAmountModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setAmountModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Amount</Text>
-            <FlatList
-              data={amountOptions}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={renderAmountItem}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={<Text style={styles.emptyText}>No amounts available</Text>}
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <Modal
-        transparent
-        visible={groupModalVisible}
-        animationType="fade"
-        onRequestClose={() => setGroupModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setGroupModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Group</Text>
-            <FlatList
-              data={groupOptions}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={renderGroupItem}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={<Text style={styles.emptyText}>No groups available</Text>}
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <Modal
-        transparent
-        visible={canvasModalVisible}
-        animationType="fade"
-        onRequestClose={() => setCanvasModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setCanvasModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Canvas Type</Text>
-            <FlatList
-              data={canvasTypes}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={renderCanvasItem}
-              showsVerticalScrollIndicator={false}
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {Platform.OS !== 'web' && showDatePicker && (
-        <DateTimePicker
-          value={tempDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event, selectedDate) => {
-            if (Platform.OS === 'android') {
-              setShowDatePicker(false);
-            }
-            if (selectedDate) {
-              setMaturityDate(formatDate(selectedDate));
-              setTempDate(selectedDate);
-              setErrors(prev => ({ ...prev, maturityDate: '' }));
-            }
-          }}
-          minimumDate={new Date()}
-        />
-      )}
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    minHeight: '100vh',
+    backgroundColor: 'transparent',
+    ...(Platform.OS === 'web' && {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: '100vh',
+      width: '100vw',
+    }),
+  },
   container: {
     flex: 1,
-    backgroundColor: '#FDF8F0',
     ...(Platform.OS === 'web' && {
       height: '100vh',
       overflow: 'hidden',
+      position: 'relative',
     }),
   },
   scrollContainer: {
@@ -1027,6 +1128,22 @@ const styles = StyleSheet.create({
       minHeight: '100%',
     }),
   },
+  topGoldLine: {
+    width: 50,
+    height: 2,
+    backgroundColor: '#D4AF37',
+    borderRadius: 1,
+    marginBottom: 15,
+    alignSelf: 'center',
+  },
+  bottomGoldLine: {
+    width: 50,
+    height: 2,
+    backgroundColor: '#D4AF37',
+    borderRadius: 1,
+    marginTop: 20,
+    alignSelf: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1040,7 +1157,7 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#D4AF37',
     letterSpacing: 1,
