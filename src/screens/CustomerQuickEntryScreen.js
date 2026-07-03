@@ -320,7 +320,7 @@ const CustomerQuickEntryScreen = ({ navigation }) => {
                 {errors.customerName && <Text style={styles.errorText}>{errors.customerName}</Text>}
               </View>
 
-              {/* 3. MOBILE NUMBER */}
+            
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
                 <TextInput

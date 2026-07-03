@@ -11,9 +11,7 @@ import {
   Modal,
   FlatList,
   Platform,
-  ImageBackground,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { customerService } from '../services/customer';
 import { useAuth } from '../context/AuthContext';
@@ -26,7 +24,7 @@ const CustomerChitScreen = ({ navigation }) => {
   const mobileNoRef = useRef(null);
   const groupNameRef = useRef(null);
   const groupNoRef = useRef(null);
-  const noOfInstallmentRef = useRef(null);
+  const installmentRef = useRef(null);
   const amountRef = useRef(null);
   const scanBarcodeRef = useRef(null);
   const cardNoRef = useRef(null);
@@ -37,7 +35,7 @@ const CustomerChitScreen = ({ navigation }) => {
     mobileNo: mobileNoRef,
     groupName: groupNameRef,
     groupNo: groupNoRef,
-    noOfInstallment: noOfInstallmentRef,
+    installment: installmentRef,
     amount: amountRef,
     scanBarcode: scanBarcodeRef,
     cardNo: cardNoRef,
@@ -47,13 +45,14 @@ const CustomerChitScreen = ({ navigation }) => {
 
   const [groupName, setGroupName] = useState('');
   const [groupNo, setGroupNo] = useState('');
-  const [noOfInstallment, setNoOfInstallment] = useState('');
+  const [installment, setInstallment] = useState('');
   const [amount, setAmount] = useState('');
   const [cardNo, setCardNo] = useState('');
   const [chitCanvasType, setChitCanvasType] = useState('');
   const [selectedCanvasId, setSelectedCanvasId] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [maturityDate, setMaturityDate] = useState('');
+  const [maturityDateFromBackend, setMaturityDateFromBackend] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [address1, setAddress1] = useState('');
   const [address2, setAddress2] = useState('');
@@ -61,6 +60,11 @@ const CustomerChitScreen = ({ navigation }) => {
   const [area, setArea] = useState('');
   const [city, setCity] = useState('');
   const [mailId, setMailId] = useState('');
+
+  // ===== CARD VALIDATION STATE =====
+  const [checkingCard, setCheckingCard] = useState(false);
+  const [cardExists, setCardExists] = useState(false);
+  const [lastCheckedCard, setLastCheckedCard] = useState('');
 
   const [groupModalVisible, setGroupModalVisible] = useState(false);
   const [amountModalVisible, setAmountModalVisible] = useState(false);
@@ -76,9 +80,6 @@ const CustomerChitScreen = ({ navigation }) => {
   const [canvasTypes, setCanvasTypes] = useState([]);
   const [loadingCanvasTypes, setLoadingCanvasTypes] = useState(false);
 
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempDate, setTempDate] = useState(new Date());
-
   const [saving, setSaving] = useState(false);
   const [fetchingCustomer, setFetchingCustomer] = useState(false);
   const [errors, setErrors] = useState({});
@@ -93,19 +94,53 @@ const CustomerChitScreen = ({ navigation }) => {
     return `${day}/${month}/${year}`;
   };
 
-  const formatDateForInput = (dateString) => {
-    if (!dateString) return '';
-    const parts = dateString.split('/');
-    if (parts.length === 3) {
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    }
-    return '';
-  };
-
   const handleBarcodeScanned = (data) => {
     console.log('📷 Scanned Barcode Data:', data);
     setCardNo(data);
+    setCardExists(false);
+    setLastCheckedCard('');
     setErrors(prev => ({ ...prev, cardNo: '' }));
+    // Check the card after setting it
+    if (data) {
+      checkCardNumber(data);
+    }
+  };
+
+  // ===== CHECK CARD NUMBER (Backend) =====
+  const checkCardNumber = async (cardNo) => {
+    if (!cardNo) return;
+    if (cardNo === lastCheckedCard && cardExists) return;
+
+    setLastCheckedCard(cardNo);
+
+    try {
+      setCheckingCard(true);
+
+      const result = await customerService.checkCard(cardNo);
+      console.log('📡 Card check result:', result);
+      
+      if (result.success && result.exists) {
+        setCardExists(true);
+        setCheckingCard(false);
+        setCardNo(cardNo);
+        
+        const msg = `Card Number Already Registered\nCard: ${cardNo}`;
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+        } else {
+          Alert.alert('Card Already Registered', `Card Number: ${cardNo}`);
+        }
+      } else {
+        setCardExists(false);
+        setCardNo(cardNo);
+      }
+    } catch (error) {
+      console.log('Card Check Error:', error);
+      setCardExists(false);
+      setCardNo(cardNo);
+    } finally {
+      setCheckingCard(false);
+    }
   };
 
   const clearCustomerFields = () => {
@@ -120,7 +155,9 @@ const CustomerChitScreen = ({ navigation }) => {
 
   const clearGroupDetails = () => {
     setGroupNo('');
-    setNoOfInstallment('');
+    setInstallment('');
+    setMaturityDateFromBackend('');
+    setMaturityDate('');
   };
 
   const clearGroupName = () => {
@@ -150,8 +187,7 @@ const CustomerChitScreen = ({ navigation }) => {
     const unsubscribe = navigation.addListener('focus', () => {
       const data = getBarcode();
       if (data) {
-        setCardNo(data);
-        setErrors(prev => ({ ...prev, cardNo: '' }));
+        handleBarcodeScanned(data);
       }
     });
     return unsubscribe;
@@ -191,9 +227,27 @@ const CustomerChitScreen = ({ navigation }) => {
       console.log('📡 Fetching group details for:', groupName);
       const result = await customerService.getGroupDetails(groupName);
       console.log('📥 Group Details Result:', result);
+      
       if (result.success && result.data) {
         setGroupNo(result.data.groupNo || '');
-        setNoOfInstallment(result.data.noOfInstallment || '');
+        setInstallment(String(result.data.installment || ''));
+        
+        if (result.data.maturedt) {
+          const dateObj = new Date(result.data.maturedt);
+          if (!isNaN(dateObj)) {
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const year = dateObj.getFullYear();
+            const formattedDate = `${day}/${month}/${year}`;
+            setMaturityDate(formattedDate);
+            setMaturityDateFromBackend(formattedDate);
+            console.log('✅ Maturity date set:', formattedDate);
+          }
+        } else {
+          setMaturityDateFromBackend('');
+          setMaturityDate('');
+        }
+        
         console.log('✅ Group details loaded:', result.data);
         autoScrollToField('groupNo');
       } else {
@@ -314,21 +368,23 @@ const CustomerChitScreen = ({ navigation }) => {
     }
   };
 
-  // ===== FETCH CANVAS TYPES FROM BACKEND =====
   const fetchCanvasTypes = async () => {
     setLoadingCanvasTypes(true);
     try {
       const result = await customerService.getCanvasTypes();
-      console.log('📥 Canvas Types Result:', result);
+      console.log('📥 Canvas Types Result:', JSON.stringify(result, null, 2));
       
       if (result.success && result.data && result.data.length > 0) {
+        console.log('📥 First item structure:', JSON.stringify(result.data[0], null, 2));
+        
         const canvasData = result.data.map(item => ({
-          id: item.CCANTPYECODE || item.id || '',
-          name: item.CCANTPYENAME || item.name || item,
+          id: String(item.id || item.CCANTPYECODE || ''),
+          name: item.name || item.CCANTPYENAME || item,
         }));
         setCanvasTypes(canvasData);
-        console.log('✅ Canvas types loaded:', canvasData);
+        console.log('✅ Canvas types loaded with IDs:', JSON.stringify(canvasData, null, 2));
       } else {
+        console.log('⚠️ No canvas types from backend, using fallback');
         setCanvasTypes([
           { id: '1', name: 'Type 1' },
           { id: '2', name: 'Type 2' },
@@ -388,19 +444,6 @@ const CustomerChitScreen = ({ navigation }) => {
     }
   }, [amount]);
 
-  const onWebDateChange = (e) => {
-    const val = e.target.value;
-    if (val) {
-      const [year, month, day] = val.split('-');
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (!isNaN(date)) {
-        setMaturityDate(formatDate(date));
-        setTempDate(date);
-        setErrors(prev => ({ ...prev, maturityDate: '' }));
-      }
-    }
-  };
-
   const renderAmountItem = ({ item }) => (
     <TouchableOpacity
       style={styles.dropdownItem}
@@ -422,6 +465,8 @@ const CustomerChitScreen = ({ navigation }) => {
         setGroupModalVisible(false);
         setErrors(prev => ({ ...prev, groupName: '' }));
         fetchGroupDetails(item);
+        setCardExists(false);
+        setLastCheckedCard('');
       }}
     >
       <Text style={styles.dropdownItemText}>{item}</Text>
@@ -432,6 +477,7 @@ const CustomerChitScreen = ({ navigation }) => {
     <TouchableOpacity
       style={styles.dropdownItem}
       onPress={() => {
+        console.log('🔍 Canvas selected - ID:', item.id, 'Name:', item.name);
         setChitCanvasType(item.name);
         setSelectedCanvasId(item.id);
         setCanvasModalVisible(false);
@@ -484,13 +530,18 @@ const CustomerChitScreen = ({ navigation }) => {
       valid = false;
       if (!firstErrorField) firstErrorField = 'groupNo';
     }
-    if (!noOfInstallment || parseInt(noOfInstallment) <= 0) {
-      newErrors.noOfInstallment = 'Enter a valid number of installments';
+    if (!installment || parseInt(installment) <= 0) {
+      newErrors.installment = 'Enter a valid number of installments';
       valid = false;
-      if (!firstErrorField) firstErrorField = 'noOfInstallment';
+      if (!firstErrorField) firstErrorField = 'installment';
     }
     if (!cardNo.trim()) {
       newErrors.cardNo = 'Card No is required';
+      valid = false;
+      if (!firstErrorField) firstErrorField = 'cardNo';
+    }
+    if (cardExists) {
+      newErrors.cardNo = 'This card number is already registered. Please use a different card.';
       valid = false;
       if (!firstErrorField) firstErrorField = 'cardNo';
     }
@@ -500,7 +551,7 @@ const CustomerChitScreen = ({ navigation }) => {
       if (!firstErrorField) firstErrorField = 'chitCanvasType';
     }
     if (!maturityDate) {
-      newErrors.maturityDate = 'Please select a maturity date';
+      newErrors.maturityDate = 'Maturity date is required';
       valid = false;
       if (!firstErrorField) firstErrorField = 'maturityDate';
     }
@@ -514,7 +565,6 @@ const CustomerChitScreen = ({ navigation }) => {
     return valid;
   };
 
-  // ===== CITY CODE MAPPING =====
   const getCityCode = (cityName) => {
     const cityMap = {
       'Erode': 1,
@@ -529,13 +579,20 @@ const CustomerChitScreen = ({ navigation }) => {
       'Coimbatore': 10,
       'Madurai': 11,
       'Salem': 12,
-      // Add more cities as needed
     };
     return cityMap[cityName] || 0;
   };
 
-  // ===== SAVE CHIT WITH CORRECT FIELD NAMES =====
   const handleSave = async () => {
+    if (cardExists) {
+      if (Platform.OS === 'web') {
+        window.alert('⚠️ This card number is already registered. Please use a different card.');
+      } else {
+        Alert.alert('Card Already Registered', 'Please use a different card number.');
+      }
+      return;
+    }
+
     if (validate()) {
       setSaving(true);
 
@@ -551,42 +608,30 @@ const CustomerChitScreen = ({ navigation }) => {
         return null;
       };
 
-      // ✅ Get city code
       const cityCode = getCityCode(city);
 
-      // ✅ DEBUG: Log all values
-      console.log('🔍 ===== DEBUG VALUES =====');
-      console.log('groupName:', groupName);
-      console.log('groupNo:', groupNo);
+      console.log('🔍 ===== SAVE DEBUG VALUES =====');
       console.log('selectedCanvasId:', selectedCanvasId);
       console.log('chitCanvasType (name):', chitCanvasType);
-      console.log('city (name):', city);
-      console.log('cityCode:', cityCode);
-      console.log('selectedBranch:', selectedBranch);
+      console.log('canvasType to send:', parseInt(selectedCanvasId) || 0);
+      console.log('cardNo being saved:', cardNo);
       console.log('===========================');
 
+      const canvasTypeValue = parseInt(selectedCanvasId) || 0;
+
       const formData = {
-        // Group Details
         groupName: groupName,
         chitGrpNo: parseInt(groupNo) || 0,
-        
-        // Customer Details
         custName: customerName,
         address1: address1,
         address2: address2,
         address3: area,
-        // ✅ Send city CODE (numeric) not city name
         cityCode: cityCode,
         phoneNo: mobileNo,
         barcode: cardNo,
-        
-        // Chit Details
         maturedt: formatDateForBackend(maturityDate),
-        // ✅ Send Canvas ID (numeric) not name
-        canvasType: parseInt(selectedCanvasId) || 0,
-        CCANVASTYPE: parseInt(selectedCanvasId) || 0,
-        
-        // Optional fields
+        canvasType: canvasTypeValue,
+        CCANVASTYPE: canvasTypeValue,
         empCode: '',
         remarks: '',
         idproof: '',
@@ -659,12 +704,13 @@ const CustomerChitScreen = ({ navigation }) => {
     setAmount('');
     setGroupName('');
     setGroupNo('');
-    setNoOfInstallment('');
+    setInstallment('');
     setCardNo('');
     setChitCanvasType('');
     setSelectedCanvasId('');
     setMobileNo('');
     setMaturityDate('');
+    setMaturityDateFromBackend('');
     setCustomerName('');
     setAddress1('');
     setAddress2('');
@@ -674,438 +720,415 @@ const CustomerChitScreen = ({ navigation }) => {
     setMailId('');
     setErrors({});
     setGroupOptions([]);
+    setCardExists(false);
+    setLastCheckedCard('');
+    setCheckingCard(false);
   };
 
   return (
-    <ImageBackground
-      source={require('../assets/images/pattern.png')}
-      style={styles.backgroundImage}
-      imageStyle={{ opacity: 0.12 }}
-      resizeMode="cover"
-    >
-      <View style={styles.container}>
-        <View style={styles.scrollContainer}>
-          <ScrollView
-            ref={scrollViewRef}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.contentContainer}
-            style={styles.scrollView}
-            nestedScrollEnabled={true}
-            scrollEnabled={true}
-          >
-            {/* Top Gold Line */}
-            <View style={styles.topGoldLine} />
+    <View style={styles.container}>
+      <View style={styles.scrollContainer}>
+        <ScrollView
+          ref={scrollViewRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.contentContainer}
+          style={styles.scrollView}
+          nestedScrollEnabled={true}
+          scrollEnabled={true}
+        >
+          <View style={styles.topGoldLine} />
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Text style={styles.backButtonText}>‹</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Customer Chit</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <View style={styles.goldLine} />
 
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <Text style={styles.backButtonText}>‹</Text>
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Customer Chit</Text>
-              <View style={styles.headerSpacer} />
+          <View style={styles.formContainer}>
+            <View ref={fieldRefs.mobileNo} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.input, errors.mobileNo && styles.errorBorder]}
+                placeholder="Enter 10-digit mobile number"
+                placeholderTextColor="#B0A090"
+                value={mobileNo}
+                keyboardType="phone-pad"
+                maxLength={10}
+                onChangeText={(text) => {
+                  handleMobileChange(text);
+                  setErrors(prev => ({ ...prev, mobileNo: '' }));
+                }}
+              />
+              {fetchingCustomer && <Text style={styles.fetchingText}>🔍 Searching for customer...</Text>}
+              {errors.mobileNo && <Text style={styles.errorText}>{errors.mobileNo}</Text>}
+              <Text style={styles.hintText}>Enter registered mobile to auto-fill customer details</Text>
             </View>
 
-            <View style={styles.goldLine} />
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Customer Name</Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField]}
+                placeholder="Auto-filled from mobile"
+                placeholderTextColor="#B0A090"
+                value={customerName}
+                editable={false}
+              />
+            </View>
 
-            <View style={styles.formContainer}>
-              <View ref={fieldRefs.mobileNo} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={[styles.input, errors.mobileNo && styles.errorBorder]}
-                  placeholder="Enter 10-digit mobile number"
-                  placeholderTextColor="#B0A090"
-                  value={mobileNo}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  onChangeText={(text) => {
-                    handleMobileChange(text);
-                    setErrors(prev => ({ ...prev, mobileNo: '' }));
-                  }}
-                />
-                {fetchingCustomer && <Text style={styles.fetchingText}>🔍 Searching for customer...</Text>}
-                {errors.mobileNo && <Text style={styles.errorText}>{errors.mobileNo}</Text>}
-                <Text style={styles.hintText}>Enter registered mobile to auto-fill customer details</Text>
-              </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Address 1</Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField]}
+                placeholder="Auto-filled from mobile"
+                placeholderTextColor="#B0A090"
+                value={address1}
+                editable={false}
+              />
+            </View>
 
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Customer Name</Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField]}
-                  placeholder="Auto-filled from mobile"
-                  placeholderTextColor="#B0A090"
-                  value={customerName}
-                  editable={false}
-                />
-              </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Address 2</Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField]}
+                placeholder="Auto-filled from mobile"
+                placeholderTextColor="#B0A090"
+                value={address2}
+                editable={false}
+              />
+            </View>
 
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Address 1</Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField]}
-                  placeholder="Auto-filled from mobile"
-                  placeholderTextColor="#B0A090"
-                  value={address1}
-                  editable={false}
-                />
-              </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Pincode</Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField]}
+                placeholder="Auto-filled from mobile"
+                placeholderTextColor="#B0A090"
+                value={pincode}
+                editable={false}
+              />
+            </View>
 
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Address 2</Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField]}
-                  placeholder="Auto-filled from mobile"
-                  placeholderTextColor="#B0A090"
-                  value={address2}
-                  editable={false}
-                />
-              </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Area</Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField]}
+                placeholder="Auto-filled from mobile"
+                placeholderTextColor="#B0A090"
+                value={area}
+                editable={false}
+              />
+            </View>
 
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Pincode</Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField]}
-                  placeholder="Auto-filled from mobile"
-                  placeholderTextColor="#B0A090"
-                  value={pincode}
-                  editable={false}
-                />
-              </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>City</Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField]}
+                placeholder="Auto-filled from mobile"
+                placeholderTextColor="#B0A090"
+                value={city}
+                editable={false}
+              />
+            </View>
 
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Area</Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField]}
-                  placeholder="Auto-filled from mobile"
-                  placeholderTextColor="#B0A090"
-                  value={area}
-                  editable={false}
-                />
-              </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Mail id</Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField]}
+                placeholder="Auto-filled from mobile"
+                placeholderTextColor="#B0A090"
+                value={mailId}
+                editable={false}
+              />
+            </View>
 
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>City</Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField]}
-                  placeholder="Auto-filled from mobile"
-                  placeholderTextColor="#B0A090"
-                  value={city}
-                  editable={false}
-                />
-              </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Mail id</Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField]}
-                  placeholder="Auto-filled from mobile"
-                  placeholderTextColor="#B0A090"
-                  value={mailId}
-                  editable={false}
-                />
-              </View>
-
-              <View ref={fieldRefs.amount} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text>
-                <TouchableOpacity
-                  style={[styles.dropdown, errors.amount && styles.errorBorder]}
-                  onPress={() => {
-                    if (amountOptions.length > 0) {
-                      setAmountModalVisible(true);
+            <View ref={fieldRefs.amount} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text>
+              <TouchableOpacity
+                style={[styles.dropdown, errors.amount && styles.errorBorder]}
+                onPress={() => {
+                  if (amountOptions.length > 0) {
+                    setAmountModalVisible(true);
+                  } else {
+                    if (Platform.OS === 'web') {
+                      window.alert('No amounts available. Please try again later.');
                     } else {
-                      if (Platform.OS === 'web') {
-                        window.alert('No amounts available. Please try again later.');
-                      } else {
-                        Alert.alert('No Amounts', 'No amounts available. Please try again later.');
-                      }
+                      Alert.alert('No Amounts', 'No amounts available. Please try again later.');
                     }
-                  }}
-                  disabled={loadingAmounts}
-                >
-                  <Text style={amount ? styles.dropdownText : styles.placeholderText}>
-                    {loadingAmounts ? 'Loading amounts...' : (amount ? `₹ ${amount}` : 'Select Amount')}
-                  </Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
-                </TouchableOpacity>
-                {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
-              </View>
-
-              <View ref={fieldRefs.groupName} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>Group Name <Text style={styles.required}>*</Text></Text>
-                <TouchableOpacity
-                  style={[styles.dropdown, errors.groupName && styles.errorBorder]}
-                  onPress={() => {
-                    if (!amount) {
-                      if (Platform.OS === 'web') {
-                        window.alert('Please select an amount first.');
-                      } else {
-                        Alert.alert('Select Amount First', 'Please select an amount first.');
-                      }
-                      return;
-                    }
-                    if (groupOptions.length > 0) {
-                      setGroupModalVisible(true);
-                    } else {
-                      if (Platform.OS === 'web') {
-                        window.alert('No groups available for this amount.');
-                      } else {
-                        Alert.alert('No Groups', 'No groups available for this amount.');
-                      }
-                    }
-                  }}
-                  disabled={loadingGroups || !amount}
-                >
-                  <Text style={groupName ? styles.dropdownText : styles.placeholderText}>
-                    {loadingGroups ? 'Loading groups...' : (groupName || 'Select Group')}
-                  </Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
-                </TouchableOpacity>
-                {errors.groupName && <Text style={styles.errorText}>{errors.groupName}</Text>}
-              </View>
-
-              <View ref={fieldRefs.groupNo} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>Group No <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField, errors.groupNo && styles.errorBorder]}
-                  placeholder="Auto-filled from group selection"
-                  placeholderTextColor="#B0A090"
-                  value={groupNo}
-                  editable={false}
-                />
-                {fetchingGroupDetails && <Text style={styles.fetchingText}>⏳ Loading group details...</Text>}
-                {errors.groupNo && <Text style={styles.errorText}>{errors.groupNo}</Text>}
-              </View>
-
-              <View ref={fieldRefs.noOfInstallment} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>No of Installment <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField, errors.noOfInstallment && styles.errorBorder]}
-                  placeholder="Auto-filled from group selection"
-                  placeholderTextColor="#B0A090"
-                  value={noOfInstallment}
-                  editable={false}
-                />
-                {errors.noOfInstallment && <Text style={styles.errorText}>{errors.noOfInstallment}</Text>}
-              </View>
-
-              <View ref={fieldRefs.scanBarcode} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>Scan Card Barcode</Text>
-                <View style={styles.rowContainer}>
-                  <TouchableOpacity
-                    style={styles.scanButton}
-                    onPress={() => navigation.navigate('BarcodeScanner')}
-                  >
-                    <Text style={styles.scanButtonIcon}>📷</Text>
-                    <Text style={styles.scanButtonText}>Scan</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.scanHint}>Tap to scan barcode</Text>
-                </View>
-              </View>
-
-              {/* 14. CARD NO - READONLY */}
-              <View ref={fieldRefs.cardNo} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>Card No <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={[styles.input, styles.readonlyField, errors.cardNo && styles.errorBorder]}
-                  placeholder="Auto-filled from barcode scan"
-                  placeholderTextColor="#B0A090"
-                  value={cardNo}
-                  editable={false}
-                />
-                {errors.cardNo && <Text style={styles.errorText}>{errors.cardNo}</Text>}
-              </View>
-
-              {/* 15. CHIT CANVAS TYPE - DYNAMIC WITH FALLBACK */}
-              <View ref={fieldRefs.chitCanvasType} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>
-                  Chit Canvas Type <Text style={styles.required}>*</Text>
+                  }
+                }}
+                disabled={loadingAmounts}
+              >
+                <Text style={amount ? styles.dropdownText : styles.placeholderText}>
+                  {loadingAmounts ? 'Loading amounts...' : (amount ? `₹ ${amount}` : 'Select Amount')}
                 </Text>
-                <TouchableOpacity
-                  style={[styles.dropdown, errors.chitCanvasType && styles.errorBorder]}
-                  onPress={() => {
-                    if (canvasTypes.length > 0) {
-                      setCanvasModalVisible(true);
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </TouchableOpacity>
+              {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
+            </View>
+
+            <View ref={fieldRefs.groupName} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Group Name <Text style={styles.required}>*</Text></Text>
+              <TouchableOpacity
+                style={[styles.dropdown, errors.groupName && styles.errorBorder]}
+                onPress={() => {
+                  if (!amount) {
+                    if (Platform.OS === 'web') {
+                      window.alert('Please select an amount first.');
                     } else {
-                      if (Platform.OS === 'web') {
-                        window.alert('No canvas types available. Please try again later.');
-                      } else {
-                        Alert.alert('No Canvas Types', 'No canvas types available. Please try again later.');
-                      }
+                      Alert.alert('Select Amount First', 'Please select an amount first.');
                     }
-                  }}
-                  disabled={loadingCanvasTypes}
+                    return;
+                  }
+                  if (groupOptions.length > 0) {
+                    setGroupModalVisible(true);
+                  } else {
+                    if (Platform.OS === 'web') {
+                      window.alert('No groups available for this amount.');
+                    } else {
+                      Alert.alert('No Groups', 'No groups available for this amount.');
+                    }
+                  }
+                }}
+                disabled={loadingGroups || !amount}
+              >
+                <Text style={groupName ? styles.dropdownText : styles.placeholderText}>
+                  {loadingGroups ? 'Loading groups...' : (groupName || 'Select Group')}
+                </Text>
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </TouchableOpacity>
+              {errors.groupName && <Text style={styles.errorText}>{errors.groupName}</Text>}
+            </View>
+
+            <View ref={fieldRefs.groupNo} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Group No <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField, errors.groupNo && styles.errorBorder]}
+                placeholder="Auto-filled from group selection"
+                placeholderTextColor="#B0A090"
+                value={groupNo}
+                editable={false}
+              />
+              {fetchingGroupDetails && <Text style={styles.fetchingText}>⏳ Loading group details...</Text>}
+              {errors.groupNo && <Text style={styles.errorText}>{errors.groupNo}</Text>}
+            </View>
+
+            <View ref={fieldRefs.installment} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>No of Installment <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField, errors.installment && styles.errorBorder]}
+                placeholder="Auto-filled from group selection"
+                placeholderTextColor="#B0A090"
+                value={installment}
+                editable={false}
+              />
+              {errors.installment && <Text style={styles.errorText}>{errors.installment}</Text>}
+            </View>
+
+
+            {/* MATURITY DATE - READONLY FROM BACKEND */}
+            <View ref={fieldRefs.maturityDate} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>
+                Maturity Date <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.input, styles.readonlyField, errors.maturityDate && styles.errorBorder]}
+                placeholder={maturityDateFromBackend ? '' : 'Auto-filled from group selection'}
+                placeholderTextColor="#B0A090"
+                value={maturityDate}
+                editable={false}
+              />
+              {!maturityDateFromBackend && (
+                <Text style={styles.hintText}>Maturity date will be auto-filled when you select a group</Text>
+              )}
+              {errors.maturityDate && <Text style={styles.errorText}>{errors.maturityDate}</Text>}
+            </View>
+       
+ {/* CHIT CANVAS TYPE */}
+            <View ref={fieldRefs.chitCanvasType} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>
+                Chit Canvas Type <Text style={styles.required}>*</Text>
+              </Text>
+              <TouchableOpacity
+                style={[styles.dropdown, errors.chitCanvasType && styles.errorBorder]}
+                onPress={() => {
+                  if (canvasTypes.length > 0) {
+                    setCanvasModalVisible(true);
+                  } else {
+                    if (Platform.OS === 'web') {
+                      window.alert('No canvas types available. Please try again later.');
+                    } else {
+                      Alert.alert('No Canvas Types', 'No canvas types available. Please try again later.');
+                    }
+                  }
+                }}
+                disabled={loadingCanvasTypes}
+              >
+                <Text style={chitCanvasType ? styles.dropdownText : styles.placeholderText}>
+                  {loadingCanvasTypes ? 'Loading canvas types...' : (chitCanvasType || 'Select Canvas Type')}
+                </Text>
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </TouchableOpacity>
+              {errors.chitCanvasType && <Text style={styles.errorText}>{errors.chitCanvasType}</Text>}
+            </View>
+
+            <View ref={fieldRefs.scanBarcode} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Scan Card Barcode</Text>
+              <View style={styles.rowContainer}>
+                <TouchableOpacity
+                  style={styles.scanButton}
+                  onPress={() => navigation.navigate('BarcodeScanner')}
                 >
-                  <Text style={chitCanvasType ? styles.dropdownText : styles.placeholderText}>
-                    {loadingCanvasTypes ? 'Loading canvas types...' : (chitCanvasType || 'Select Canvas Type')}
-                  </Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={styles.scanButtonIcon}>📷</Text>
+                  <Text style={styles.scanButtonText}>Scan</Text>
                 </TouchableOpacity>
-                {errors.chitCanvasType && <Text style={styles.errorText}>{errors.chitCanvasType}</Text>}
-              </View>
-
-              <View ref={fieldRefs.maturityDate} style={styles.fieldContainer} collapsable={false}>
-                <Text style={styles.label}>Maturity Date <Text style={styles.required}>*</Text></Text>
-                {Platform.OS === 'web' ? (
-                  <input
-                    type="date"
-                    value={formatDateForInput(maturityDate)}
-                    onChange={onWebDateChange}
-                    min={new Date().toISOString().split('T')[0]}
-                    style={{
-                      width: '100%',
-                      padding: '12px 15px',
-                      fontSize: '15px',
-                      borderRadius: '10px',
-                      border: '1px solid rgba(212, 175, 55, 0.15)',
-                      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                      color: '#1A1108',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.datePickerButton, errors.maturityDate && styles.errorBorder]}
-                    onPress={() => setShowDatePicker(true)}
-                  >
-                    <Text style={maturityDate ? styles.datePickerText : styles.placeholderText}>
-                      {maturityDate || 'Select Maturity Date'}
-                    </Text>
-                    <Text style={styles.datePickerIcon}>📅</Text>
-                  </TouchableOpacity>
-                )}
-                {errors.maturityDate && <Text style={styles.errorText}>{errors.maturityDate}</Text>}
+                <Text style={styles.scanHint}>Tap to scan barcode</Text>
               </View>
             </View>
 
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave} disabled={saving}>
-                {saving ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* Bottom Gold Line */}
-            <View style={styles.bottomGoldLine} />
-          </ScrollView>
-        </View>
-
-        <Modal
-          transparent
-          visible={amountModalVisible}
-          animationType="fade"
-          onRequestClose={() => setAmountModalVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setAmountModalVisible(false)}
-          >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select Amount</Text>
-              <FlatList
-                data={amountOptions}
-                keyExtractor={(item, index) => index.toString()}
-                renderItem={renderAmountItem}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={<Text style={styles.emptyText}>No amounts available</Text>}
+            {/* CARD NO */}
+            <View ref={fieldRefs.cardNo} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>
+                Card No <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  Platform.OS === 'web' ? null : styles.readonlyField,
+                  errors.cardNo && styles.errorBorder,
+                  cardExists && { borderColor: 'red', borderWidth: 2 }
+                ]}
+                placeholder={
+                  Platform.OS === 'web' 
+                    ? 'Enter card number' 
+                    : 'Auto-filled from barcode scan'
+                }
+                placeholderTextColor="#B0A090"
+                value={cardNo}
+                editable={Platform.OS === 'web'}
+                onChangeText={(text) => {
+                  if (Platform.OS === 'web') {
+                    setCardNo(text);
+                    setErrors(prev => ({ ...prev, cardNo: '' }));
+                    setCardExists(false);
+                    setLastCheckedCard('');
+                    if (text.length > 0) {
+                      checkCardNumber(text);
+                    }
+                  }
+                }}
               />
+              {checkingCard && (
+                <Text style={{ color: '#D4AF37', marginTop: 5 }}>
+                  🔍 Checking card number...
+                </Text>
+              )}
+              {cardExists && (
+                <Text style={{ color: 'red', marginTop: 5, fontWeight: '500' }}>
+                  ⚠️ Card number already registered! Please use a different card.
+                </Text>
+              )}
+              {errors.cardNo && <Text style={styles.errorText}>{errors.cardNo}</Text>}
             </View>
-          </TouchableOpacity>
-        </Modal>
 
-        <Modal
-          transparent
-          visible={groupModalVisible}
-          animationType="fade"
-          onRequestClose={() => setGroupModalVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setGroupModalVisible(false)}
-          >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select Group</Text>
-              <FlatList
-                data={groupOptions}
-                keyExtractor={(item, index) => index.toString()}
-                renderItem={renderGroupItem}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={<Text style={styles.emptyText}>No groups available</Text>}
-              />
-            </View>
-          </TouchableOpacity>
-        </Modal>
+              </View>
 
-        <Modal
-          transparent
-          visible={canvasModalVisible}
-          animationType="fade"
-          onRequestClose={() => setCanvasModalVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setCanvasModalVisible(false)}
-          >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select Canvas Type</Text>
-              <FlatList
-                data={canvasTypes}
-                keyExtractor={(item, index) => index.toString()}
-                renderItem={renderCanvasItem}
-                showsVerticalScrollIndicator={false}
-              />
-            </View>
-          </TouchableOpacity>
-        </Modal>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave} disabled={saving}>
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
-        {Platform.OS !== 'web' && showDatePicker && (
-          <DateTimePicker
-            value={tempDate}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(event, selectedDate) => {
-              if (Platform.OS === 'android') {
-                setShowDatePicker(false);
-              }
-              if (selectedDate) {
-                setMaturityDate(formatDate(selectedDate));
-                setTempDate(selectedDate);
-                setErrors(prev => ({ ...prev, maturityDate: '' }));
-              }
-            }}
-            minimumDate={new Date()}
-          />
-        )}
+          <View style={styles.bottomGoldLine} />
+        </ScrollView>
       </View>
-    </ImageBackground>
+
+      <Modal
+        transparent
+        visible={amountModalVisible}
+        animationType="fade"
+        onRequestClose={() => setAmountModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setAmountModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Amount</Text>
+            <FlatList
+              data={amountOptions}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={renderAmountItem}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={<Text style={styles.emptyText}>No amounts available</Text>}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={groupModalVisible}
+        animationType="fade"
+        onRequestClose={() => setGroupModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setGroupModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Group</Text>
+            <FlatList
+              data={groupOptions}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={renderGroupItem}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={<Text style={styles.emptyText}>No groups available</Text>}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={canvasModalVisible}
+        animationType="fade"
+        onRequestClose={() => setCanvasModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCanvasModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Canvas Type</Text>
+            <FlatList
+              data={canvasTypes}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={renderCanvasItem}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
-    minHeight: '100vh',
-    backgroundColor: 'transparent',
-    ...(Platform.OS === 'web' && {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: '100vh',
-      width: '100vw',
-    }),
-  },
   container: {
     flex: 1,
+    backgroundColor: '#F5F0EB',
     ...(Platform.OS === 'web' && {
       height: '100vh',
       overflow: 'hidden',
@@ -1259,24 +1282,6 @@ const styles = StyleSheet.create({
   dropdownArrow: {
     fontSize: 12,
     color: '#B0A090',
-  },
-  datePickerButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.15)',
-  },
-  datePickerText: {
-    fontSize: 15,
-    color: '#1A1108',
-  },
-  datePickerIcon: {
-    fontSize: 18,
   },
   hintText: {
     fontSize: 11,

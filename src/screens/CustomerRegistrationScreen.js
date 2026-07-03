@@ -406,90 +406,103 @@ const CustomerRegistrationScreen = ({ navigation }) => {
   };
 
   // ===== SAVE (FIXED FOR WEB) =====
-  const handleSave = async () => {
-    if (checkingMobile) {
-      if (Platform.OS === 'web') {
-        window.alert('Mobile number verification is in progress.');
-      } else {
-        Alert.alert('Please Wait', 'Mobile number verification is in progress.');
-      }
-      return;
+ // ===== SAVE (FIXED) =====
+const handleSave = async () => {
+  if (checkingMobile) {
+    if (Platform.OS === 'web') {
+      window.alert('Mobile number verification is in progress.');
+    } else {
+      Alert.alert('Please Wait', 'Mobile number verification is in progress.');
     }
+    return;
+  }
 
-    if (mobileExists) {
-      if (Platform.OS === 'web') {
-        window.alert('This mobile number is already registered.');
-      } else {
-        Alert.alert('Duplicate Mobile', 'This mobile number is already registered.');
-      }
-      return;
+  if (mobileExists) {
+    if (Platform.OS === 'web') {
+      window.alert('This mobile number is already registered.');
+    } else {
+      Alert.alert('Duplicate Mobile', 'This mobile number is already registered.');
     }
+    return;
+  }
 
-    if (validateAndScroll()) {
-      setSaving(true);
-      
-      const dobSQL = formatDateForSQL(dob);
-      const weddingDateSQL = formatDateForSQL(weddingDate);
+  if (validateAndScroll()) {
+    setSaving(true);
+    
+    const dobSQL = formatDateForSQL(dob);
+    const weddingDateSQL = formatDateForSQL(weddingDate);
 
-      const formData = {
-        customerName: name,
-        cusadd1: address1,
-        cusadd2: address2,
-        cusadd3: area,
-        cuscity: city,
-        mobileNumber: mobileNumber,
-        postalCode: pincode,
-        cusbran: selectedBranch,
-        cusdob: dobSQL,
-        cusdow: weddingDateSQL,
-        cusemail: email,
-        cuspan: pan,
-        cusaadhar: aadhaar,
-        cusgstno: gst,
-      };
+    const formData = {
+      customerName: name,
+      cusadd1: address1,
+      cusadd2: address2,
+      cusadd3: area,
+      cuscity: city,
+      mobileNumber: mobileNumber,
+      postalCode: pincode,
+      cusbran: selectedBranch,
+      cusdob: dobSQL,
+      cusdow: weddingDateSQL,
+      cusemail: email,
+      cuspan: pan,
+      cusaadhar: aadhaar,
+      cusgstno: gst,
+    };
+    
+    console.log("📤 Registration Form Data:", formData);
+    
+    try {
+      // ✅ FIRST: Send to BACKEND
+      console.log('🔄 Sending to backend...');
+      const result = await customerService.registration(formData);
+      console.log('📡 Backend Response:', result);
       
-      console.log("📤 Registration Form Data:", formData);
-      
-      try {
-        const result = await customerService.registration(formData);
+      if (result.success) {
+        // ✅ ONLY save to local AFTER backend success
         await saveCustomerToLocal(formData);
+        console.log('✅ Customer saved locally (backup)');
         
         setSaving(false);
         
-        if (result.success) {
-          if (Platform.OS === 'web') {
-            window.alert('✅ ' + result.message);
-            clearForm();
-            navigation.goBack();
-          } else {
-            Alert.alert('✅ Success', result.message, [
-              {
-                text: 'OK',
-                onPress: () => {
-                  clearForm();
-                  navigation.goBack();
-                },
-              },
-            ]);
-          }
-        } else {
-          if (Platform.OS === 'web') {
-            window.alert('❌ ' + result.message);
-          } else {
-            Alert.alert('Error', result.message);
-          }
-        }
-      } catch (error) {
-        setSaving(false);
         if (Platform.OS === 'web') {
-          window.alert('❌ Failed to save. Please try again.');
+          window.alert('✅ ' + result.message);
+          clearForm();
+          navigation.goBack();
         } else {
-          Alert.alert('Error', 'Failed to save. Please try again.');
+          Alert.alert('✅ Success', result.message, [
+            {
+              text: 'OK',
+              onPress: () => {
+                clearForm();
+                navigation.goBack();
+              },
+            },
+          ]);
+        }
+      } else {
+        // ❌ Backend failed
+        setSaving(false);
+        console.log('❌ Backend error:', result.message);
+        
+        if (Platform.OS === 'web') {
+          window.alert('❌ ' + (result.message || 'Failed to register customer.'));
+        } else {
+          Alert.alert('Error', result.message || 'Failed to register customer.');
         }
       }
+    } catch (error) {
+      setSaving(false);
+      console.log('❌ Registration error:', error);
+      console.log('❌ Error details:', error.response?.data);
+      
+      if (Platform.OS === 'web') {
+        window.alert('❌ Failed to save. Please try again.\n' + (error.response?.data?.message || ''));
+      } else {
+        Alert.alert('Error', 'Failed to save. Please try again.');
+      }
     }
-  };
-
+  }
+};
   // ===== CANCEL (FIXED FOR WEB) =====
   const handleCancel = () => {
     if (Platform.OS === 'web') {
@@ -577,7 +590,6 @@ const CustomerRegistrationScreen = ({ navigation }) => {
               {errors.branch && <Text style={styles.errorText}>{errors.branch}</Text>}
             </View>
 
-            {/* 2. MOBILE NUMBER */}
             <View ref={fieldRefs.mobileNumber} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
               <TextInput
@@ -802,7 +814,6 @@ const CustomerRegistrationScreen = ({ navigation }) => {
               {errors.address1 && <Text style={styles.errorText}>{errors.address1}</Text>}
             </View>
 
-            {/* 11. ADDRESS 2 */}
             <View ref={fieldRefs.address2} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>Address 2 <Text style={styles.required}>*</Text></Text>
               <TextInput
