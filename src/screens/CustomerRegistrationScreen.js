@@ -50,6 +50,19 @@ const CustomerRegistrationScreen = ({ navigation }) => {
   const [aadhaar, setAadhaar] = useState('');
   const [gst, setGst] = useState('');
 
+  // ===== CUSTOMER TYPE STATE =====
+  const [customerTypes, setCustomerTypes] = useState([]);
+  const [selectedCustomerType, setSelectedCustomerType] = useState('');
+  const [loadingCustomerTypes, setLoadingCustomerTypes] = useState(false);
+  const [customerTypeModalVisible, setCustomerTypeModalVisible] = useState(false);
+
+  // ===== EMPLOYEE MEMBERS STATE =====
+  const [employees, setEmployees] = useState([]);
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
   // ===== DATE PICKER STATE =====
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [showWeddingPicker, setShowWeddingPicker] = useState(false);
@@ -82,6 +95,9 @@ const CustomerRegistrationScreen = ({ navigation }) => {
     pan: useRef(null),
     aadhaar: useRef(null),
     gst: useRef(null),
+    customerType: useRef(null),
+    employees: useRef(null),
+    search: useRef(null),
   };
 
   // ===== DATE HELPER FUNCTIONS =====
@@ -106,9 +122,9 @@ const CustomerRegistrationScreen = ({ navigation }) => {
     if (!dateString) return null;
     const parts = dateString.split('/');
     if (parts.length === 3) {
-      const day = parseInt(parts[0],10);
-      const month = parseInt(parts[1],10) - 1;
-      const year = parseInt(parts[2],10);
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
       return new Date(year, month, day);
     }
     return null;
@@ -143,6 +159,135 @@ const CustomerRegistrationScreen = ({ navigation }) => {
         setErrors(prev => ({ ...prev, weddingDate: '' }));
       }
     }
+  };
+
+  // ===== FETCH CUSTOMER TYPES FROM BACKEND =====
+  const fetchCustomerTypes = async () => {
+    setLoadingCustomerTypes(true);
+    try {
+      const result = await customerService.getCustomerTypes();
+      console.log('📥 Customer Types response:', result);
+      
+      if (result.success && result.data) {
+        setCustomerTypes(result.data);
+        // Auto-select first type by default (optional)
+        // setSelectedCustomerType(result.data[0]?.name || '');
+      } else {
+        // Fallback mock data
+        const mockTypes = [
+          { id: '1', name: 'Type 1' },
+          { id: '2', name: 'Type 2' },
+          { id: '3', name: 'Type 3' },
+          { id: '4', name: 'Type 4' },
+          { id: '5', name: 'Type 5' },
+        ];
+        setCustomerTypes(mockTypes);
+        console.log('⚠️ Using mock customer types data');
+      }
+    } catch (error) {
+      console.log('❌ Error fetching customer types:', error);
+      // Fallback mock data
+      const mockTypes = [
+        { id: '1', name: 'Type 1' },
+        { id: '2', name: 'Type 2' },
+        { id: '3', name: 'Type 3' },
+        { id: '4', name: 'Type 4' },
+        { id: '5', name: 'Type 5' },
+      ];
+      setCustomerTypes(mockTypes);
+    } finally {
+      setLoadingCustomerTypes(false);
+    }
+  };
+
+  // ===== SEARCH FUNCTION =====
+  const handleSearch = (text) => {
+    setSearchQuery(text);
+    if (text.trim() === '') {
+      setFilteredEmployees(employees);
+    } else {
+      const lowerCaseQuery = text.toLowerCase().trim();
+      const filtered = employees.filter(emp => {
+        const ecNoMatch = String(emp.ecNo).toLowerCase().includes(lowerCaseQuery);
+        const nameMatch = emp.name.toLowerCase().includes(lowerCaseQuery);
+        return ecNoMatch || nameMatch;
+      });
+      setFilteredEmployees(filtered);
+    }
+  };
+
+  // ===== FETCH EMPLOYEES FROM BACKEND =====
+  const fetchEmployees = async () => {
+    setLoadingEmployees(true);
+    try {
+      const result = await customerService.getEmployees();
+      console.log('📥 Employees response:', result);
+      
+      if (result.success && result.data) {
+        setEmployees(result.data);
+        setFilteredEmployees(result.data);
+        setSelectedEmployees([]);
+      } else {
+        // Mock data for testing - 15 employees
+        const mockEmployees = [
+          { ecNo: 'EMP001', name: 'Rajesh Kumar' },
+          { ecNo: 'EMP002', name: 'Priya Sharma' },
+          { ecNo: 'EMP003', name: 'Amit Patel' },
+          { ecNo: 'EMP004', name: 'Sneha Reddy' },
+          { ecNo: 'EMP005', name: 'Vikram Singh' },
+          { ecNo: 'EMP006', name: 'Arun Kumar' },
+          { ecNo: 'EMP007', name: 'Deepa Lakshmi' },
+          { ecNo: 'EMP008', name: 'Karthik Raj' },
+          { ecNo: 'EMP009', name: 'Meena Kumari' },
+          { ecNo: 'EMP010', name: 'Suresh Babu' },
+          { ecNo: 'EMP011', name: 'Lakshmi Narayanan' },
+          { ecNo: 'EMP012', name: 'Ganesh Moorthy' },
+          { ecNo: 'EMP013', name: 'Saranya Devi' },
+          { ecNo: 'EMP014', name: 'Murali Krishna' },
+          { ecNo: 'EMP015', name: 'Anitha Rani' },
+        ];
+        setEmployees(mockEmployees);
+        setFilteredEmployees(mockEmployees);
+        setSelectedEmployees([]);
+        console.log('⚠️ Using mock employee data (15 employees for testing scroll)');
+      }
+    } catch (error) {
+      console.log('❌ Error fetching employees:', error);
+      // Fallback mock data
+      const mockEmployees = [
+        { ecNo: 'EMP001', name: 'Rajesh Kumar' },
+        { ecNo: 'EMP002', name: 'Priya Sharma' },
+        { ecNo: 'EMP003', name: 'Amit Patel' },
+        { ecNo: 'EMP004', name: 'Sneha Reddy' },
+        { ecNo: 'EMP005', name: 'Vikram Singh' },
+        { ecNo: 'EMP006', name: 'Arun Kumar' },
+        { ecNo: 'EMP007', name: 'Deepa Lakshmi' },
+        { ecNo: 'EMP008', name: 'Karthik Raj' },
+        { ecNo: 'EMP009', name: 'Meena Kumari' },
+        { ecNo: 'EMP010', name: 'Suresh Babu' },
+        { ecNo: 'EMP011', name: 'Lakshmi Narayanan' },
+        { ecNo: 'EMP012', name: 'Ganesh Moorthy' },
+        { ecNo: 'EMP013', name: 'Saranya Devi' },
+        { ecNo: 'EMP014', name: 'Murali Krishna' },
+        { ecNo: 'EMP015', name: 'Anitha Rani' },
+      ];
+      setEmployees(mockEmployees);
+      setFilteredEmployees(mockEmployees);
+      setSelectedEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  // ===== TOGGLE EMPLOYEE CHECKBOX =====
+  const toggleEmployee = (ecNo) => {
+    setSelectedEmployees(prev => {
+      if (prev.includes(ecNo)) {
+        return prev.filter(id => id !== ecNo);
+      } else {
+        return [...prev, ecNo];
+      }
+    });
   };
 
   // ===== API CALL: Fetch Pincode Data =====
@@ -206,6 +351,13 @@ const CustomerRegistrationScreen = ({ navigation }) => {
         setCity(selected.District || '');
       }
     }
+  };
+
+  // ===== HANDLE CUSTOMER TYPE SELECTION =====
+  const handleCustomerTypeSelect = (type) => {
+    setSelectedCustomerType(type.name);
+    setCustomerTypeModalVisible(false);
+    setErrors(prev => ({ ...prev, customerType: '' }));
   };
 
   // ===== HANDLE PINCODE CHANGE =====
@@ -310,6 +462,18 @@ const CustomerRegistrationScreen = ({ navigation }) => {
       valid = false;
       if (!firstErrorField) firstErrorField = 'address2';
     }
+    // ✅ Validate customer type selection
+    if (!selectedCustomerType) {
+      newErrors.customerType = 'Please select a customer type';
+      valid = false;
+      if (!firstErrorField) firstErrorField = 'customerType';
+    }
+    // ✅ Validate employee selection - at least one must be selected
+    if (selectedEmployees.length === 0) {
+      newErrors.employees = 'Please select at least one employee';
+      valid = false;
+      if (!firstErrorField) firstErrorField = 'employees';
+    }
 
     setErrors(newErrors);
 
@@ -405,105 +569,129 @@ const CustomerRegistrationScreen = ({ navigation }) => {
     return null;
   };
 
-  // ===== SAVE (FIXED FOR WEB) =====
- // ===== SAVE (FIXED) =====
-const handleSave = async () => {
-  if (checkingMobile) {
-    if (Platform.OS === 'web') {
-      window.alert('Mobile number verification is in progress.');
-    } else {
-      Alert.alert('Please Wait', 'Mobile number verification is in progress.');
-    }
-    return;
-  }
-
-  if (mobileExists) {
-    if (Platform.OS === 'web') {
-      window.alert('This mobile number is already registered.');
-    } else {
-      Alert.alert('Duplicate Mobile', 'This mobile number is already registered.');
-    }
-    return;
-  }
-
-  if (validateAndScroll()) {
-    setSaving(true);
-    
-    const dobSQL = formatDateForSQL(dob);
-    const weddingDateSQL = formatDateForSQL(weddingDate);
-
-    const formData = {
-      customerName: name,
-      cusadd1: address1,
-      cusadd2: address2,
-      cusadd3: area,
-      cuscity: city,
-      mobileNumber: mobileNumber,
-      postalCode: pincode,
-      cusbran: selectedBranch,
-      cusdob: dobSQL,
-      cusdow: weddingDateSQL,
-      cusemail: email,
-      cuspan: pan,
-      cusaadhar: aadhaar,
-      cusgstno: gst,
-    };
-    
-    console.log("📤 Registration Form Data:", formData);
-    
-    try {
-      // ✅ FIRST: Send to BACKEND
-      console.log('🔄 Sending to backend...');
-      const result = await customerService.registration(formData);
-      console.log('📡 Backend Response:', result);
-      
-      if (result.success) {
-        // ✅ ONLY save to local AFTER backend success
-        await saveCustomerToLocal(formData);
-        console.log('✅ Customer saved locally (backup)');
-        
-        setSaving(false);
-        
-        if (Platform.OS === 'web') {
-          window.alert('✅ ' + result.message);
-          clearForm();
-          navigation.goBack();
-        } else {
-          Alert.alert('✅ Success', result.message, [
-            {
-              text: 'OK',
-              onPress: () => {
-                clearForm();
-                navigation.goBack();
-              },
-            },
-          ]);
-        }
-      } else {
-        // ❌ Backend failed
-        setSaving(false);
-        console.log('❌ Backend error:', result.message);
-        
-        if (Platform.OS === 'web') {
-          window.alert('❌ ' + (result.message || 'Failed to register customer.'));
-        } else {
-          Alert.alert('Error', result.message || 'Failed to register customer.');
-        }
-      }
-    } catch (error) {
-      setSaving(false);
-      console.log('❌ Registration error:', error);
-      console.log('❌ Error details:', error.response?.data);
-      
+  // ===== SAVE =====
+  const handleSave = async () => {
+    if (checkingMobile) {
       if (Platform.OS === 'web') {
-        window.alert('❌ Failed to save. Please try again.\n' + (error.response?.data?.message || ''));
+        window.alert('Mobile number verification is in progress.');
       } else {
-        Alert.alert('Error', 'Failed to save. Please try again.');
+        Alert.alert('Please Wait', 'Mobile number verification is in progress.');
+      }
+      return;
+    }
+
+    if (mobileExists) {
+      if (Platform.OS === 'web') {
+        window.alert('This mobile number is already registered.');
+      } else {
+        Alert.alert('Duplicate Mobile', 'This mobile number is already registered.');
+      }
+      return;
+    }
+
+    // ✅ Validate customer type selection
+    if (!selectedCustomerType) {
+      if (Platform.OS === 'web') {
+        window.alert('Please select a customer type.');
+      } else {
+        Alert.alert('Required', 'Please select a customer type.');
+      }
+      return;
+    }
+
+    // ✅ Validate employee selection - at least one must be selected
+    if (selectedEmployees.length === 0) {
+      if (Platform.OS === 'web') {
+        window.alert('Please select at least one employee.');
+      } else {
+        Alert.alert('Required', 'Please select at least one employee.');
+      }
+      return;
+    }
+
+    if (validateAndScroll()) {
+      setSaving(true);
+      
+      const dobSQL = formatDateForSQL(dob);
+      const weddingDateSQL = formatDateForSQL(weddingDate);
+
+      const formData = {
+        customerName: name,
+        cusadd1: address1,
+        cusadd2: address2,
+        cusadd3: area,
+        cuscity: city,
+        mobileNumber: mobileNumber,
+        postalCode: pincode,
+        cusbran: selectedBranch,
+        cusdob: dobSQL,
+        cusdow: weddingDateSQL,
+        cusemail: email,
+        cuspan: pan,
+        cusaadhar: aadhaar,
+        cusgstno: gst,
+        // ✅ Add customer type
+        customerType: selectedCustomerType,
+        // ✅ CORRECT FIELD NAME - Backend expects "employees"
+        employees: selectedEmployees,
+      };
+      
+      console.log("📤 Registration Form Data:", formData);
+      
+      try {
+        // ✅ FIRST: Send to BACKEND
+        console.log('🔄 Sending to backend...');
+        const result = await customerService.registration(formData);
+        console.log('📡 Backend Response:', result);
+        
+        if (result.success) {
+          // ✅ ONLY save to local AFTER backend success
+          await saveCustomerToLocal(formData);
+          console.log('✅ Customer saved locally (backup)');
+          
+          setSaving(false);
+          
+          if (Platform.OS === 'web') {
+            window.alert('✅ ' + result.message);
+            clearForm();
+            navigation.goBack();
+          } else {
+            Alert.alert('✅ Success', result.message, [
+              {
+                text: 'OK',
+                onPress: () => {
+                  clearForm();
+                  navigation.goBack();
+                },
+              },
+            ]);
+          }
+        } else {
+          // ❌ Backend failed
+          setSaving(false);
+          console.log('❌ Backend error:', result.message);
+          
+          if (Platform.OS === 'web') {
+            window.alert('❌ ' + (result.message || 'Failed to register customer.'));
+          } else {
+            Alert.alert('Error', result.message || 'Failed to register customer.');
+          }
+        }
+      } catch (error) {
+        setSaving(false);
+        console.log('❌ Registration error:', error);
+        console.log('❌ Error details:', error.response?.data);
+        
+        if (Platform.OS === 'web') {
+          window.alert('❌ Failed to save. Please try again.\n' + (error.response?.data?.message || ''));
+        } else {
+          Alert.alert('Error', 'Failed to save. Please try again.');
+        }
       }
     }
-  }
-};
-  // ===== CANCEL (FIXED FOR WEB) =====
+  };
+
+  // ===== CANCEL =====
   const handleCancel = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Are you sure you want to clear all fields?')) {
@@ -542,6 +730,9 @@ const handleSave = async () => {
     setMobileExists(false);
     setCheckingMobile(false);
     setLastCheckedMobile('');
+    setSelectedCustomerType('');
+    setSelectedEmployees([]);
+    setSearchQuery('');
   };
 
   // ===== RENDER AREA DROPDOWN =====
@@ -553,6 +744,73 @@ const handleSave = async () => {
       <Text style={styles.dropdownItemText}>{item}</Text>
     </TouchableOpacity>
   );
+
+  // ===== RENDER CUSTOMER TYPE ITEM =====
+  const renderCustomerTypeItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.dropdownItem}
+      onPress={() => handleCustomerTypeSelect(item)}
+    >
+      <Text style={styles.dropdownItemText}>{item.name}</Text>
+    </TouchableOpacity>
+  );
+
+  // ===== RENDER EMPLOYEE HEADER =====
+  const renderEmployeeHeader = () => (
+    <View style={styles.employeeHeader}>
+      <View style={styles.headerEcNumberContainer}>
+        <Text style={styles.employeeHeaderText}>EC.No</Text>
+      </View>
+      <View style={styles.headerNameContainer}>
+        <Text style={styles.employeeHeaderText}>Name</Text>
+      </View>
+      <View style={styles.headerCheckboxContainer}>
+        <Text style={styles.employeeHeaderText}>Checkbox</Text>
+      </View>
+    </View>
+  );
+
+  // ===== RENDER EMPLOYEE ITEM =====
+  const renderEmployeeItem = ({ item }) => (
+    <TouchableOpacity
+      style={[
+        styles.employeeItem,
+        selectedEmployees.includes(item.ecNo) && styles.employeeItemSelected
+      ]}
+      onPress={() => toggleEmployee(item.ecNo)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.employeeItemContent}>
+        {/* EC Number */}
+        <View style={styles.ecNumberContainer}>
+          <Text style={styles.ecNumberText}>{item.ecNo}</Text>
+        </View>
+        
+        {/* Name */}
+        <View style={styles.employeeNameContainer}>
+          <Text style={styles.employeeNameText}>{item.name}</Text>
+        </View>
+        
+        {/* Checkbox */}
+        <View style={styles.checkboxContainer}>
+          <View style={[
+            styles.checkbox,
+            selectedEmployees.includes(item.ecNo) && styles.checkboxChecked
+          ]}>
+            {selectedEmployees.includes(item.ecNo) && (
+              <Text style={styles.checkboxTick}>✓</Text>
+            )}
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // ===== FETCH CUSTOMER TYPES AND EMPLOYEES ON MOUNT =====
+  useEffect(() => {
+    fetchCustomerTypes();
+    fetchEmployees();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -590,6 +848,7 @@ const handleSave = async () => {
               {errors.branch && <Text style={styles.errorText}>{errors.branch}</Text>}
             </View>
 
+            {/* 2. MOBILE NUMBER */}
             <View ref={fieldRefs.mobileNumber} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
               <TextInput
@@ -814,6 +1073,7 @@ const handleSave = async () => {
               {errors.address1 && <Text style={styles.errorText}>{errors.address1}</Text>}
             </View>
 
+            {/* 11. ADDRESS 2 */}
             <View ref={fieldRefs.address2} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>Address 2 <Text style={styles.required}>*</Text></Text>
               <TextInput
@@ -885,6 +1145,159 @@ const handleSave = async () => {
               {errors.gst && <Text style={styles.errorText}>{errors.gst}</Text>}
             </View>
 
+            {/* 15. CUSTOMER TYPE - NEW FIELD */}
+            <View ref={fieldRefs.customerType} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Customer Type <Text style={styles.required}>*</Text></Text>
+              <TouchableOpacity
+                style={[
+                  styles.dropdown,
+                  errors.customerType && styles.errorBorder,
+                  selectedCustomerType && styles.readonlyField
+                ]}
+                onPress={() => {
+                  if (customerTypes.length > 0) {
+                    setCustomerTypeModalVisible(true);
+                  } else {
+                    if (Platform.OS === 'web') {
+                      window.alert('No customer types available. Please try again later.');
+                    } else {
+                      Alert.alert('No Types', 'No customer types available. Please try again later.');
+                    }
+                  }
+                }}
+                disabled={loadingCustomerTypes}
+              >
+                <Text style={selectedCustomerType ? styles.dropdownText : styles.placeholderText}>
+                  {loadingCustomerTypes ? 'Loading types...' : (selectedCustomerType || 'Select Customer Type')}
+                </Text>
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </TouchableOpacity>
+              {errors.customerType && <Text style={styles.errorText}>{errors.customerType}</Text>}
+            </View>
+
+            {/* 16. EMPLOYEE MEMBERS SECTION - WITH SEARCH */}
+            <View ref={fieldRefs.employees} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>
+                Employee Members <Text style={styles.required}>*</Text>
+              </Text>
+              
+              {/* ✅ SEARCH BAR */}
+              <View style={styles.searchContainer}>
+                <TextInput
+                  ref={fieldRefs.search}
+                  style={styles.searchInput}
+                  placeholder="🔍 Search by EC.No or Name..."
+                  placeholderTextColor="#B0A090"
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                  clearButtonMode="always"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity 
+                    style={styles.clearButton}
+                    onPress={() => {
+                      setSearchQuery('');
+                      setFilteredEmployees(employees);
+                    }}
+                  >
+                    <Text style={styles.clearButtonText}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Show result count */}
+              {employees.length > 0 && (
+                <Text style={styles.resultCount}>
+                  Showing {filteredEmployees.length} of {employees.length} employees
+                  {searchQuery.length > 0 && ` (matching "${searchQuery}")`}
+                </Text>
+              )}
+
+              {/* Employee List - SCROLLABLE */}
+              <View style={styles.employeeContainer}>
+                {loadingEmployees ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#D4AF37" />
+                    <Text style={styles.loadingText}>Loading employees...</Text>
+                  </View>
+                ) : filteredEmployees.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>
+                      {searchQuery.length > 0 
+                        ? `No employees found matching "${searchQuery}"` 
+                        : 'No employees found'}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    {/* ✅ HEADER ROW - Fixed */}
+                    <View style={styles.employeeHeader}>
+                      <View style={styles.headerEcNumberContainer}>
+                        <Text style={styles.employeeHeaderText}>EC.No</Text>
+                      </View>
+                      <View style={styles.headerNameContainer}>
+                        <Text style={styles.employeeHeaderText}>Name</Text>
+                      </View>
+                      <View style={styles.headerCheckboxContainer}>
+                        <Text style={styles.employeeHeaderText}>Select</Text>
+                      </View>
+                    </View>
+                    
+                    {/* ✅ SCROLLABLE Employee Items */}
+                    <ScrollView 
+                      style={styles.employeeScrollView}
+                      showsVerticalScrollIndicator={true}
+                      nestedScrollEnabled={true}
+                    >
+                      {filteredEmployees.map((item) => (
+                        <TouchableOpacity
+                          key={item.ecNo}
+                          style={[
+                            styles.employeeItem,
+                            selectedEmployees.includes(item.ecNo) && styles.employeeItemSelected
+                          ]}
+                          onPress={() => toggleEmployee(item.ecNo)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.employeeItemContent}>
+                            {/* EC Number */}
+                            <View style={styles.ecNumberContainer}>
+                              <Text style={styles.ecNumberText}>{item.ecNo}</Text>
+                            </View>
+                            
+                            {/* Name */}
+                            <View style={styles.employeeNameContainer}>
+                              <Text style={styles.employeeNameText}>{item.name}</Text>
+                            </View>
+                            
+                            {/* Checkbox */}
+                            <View style={styles.checkboxContainer}>
+                              <View style={[
+                                styles.checkbox,
+                                selectedEmployees.includes(item.ecNo) && styles.checkboxChecked
+                              ]}>
+                                {selectedEmployees.includes(item.ecNo) && (
+                                  <Text style={styles.checkboxTick}>✓</Text>
+                                )}
+                              </View>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+              </View>
+
+              {/* Show selected count */}
+              {employees.length > 0 && (
+                <Text style={styles.selectedCount}>
+                  Selected: {selectedEmployees.length} / {employees.length} employees
+                </Text>
+              )}
+              {errors.employees && <Text style={styles.errorText}>{errors.employees}</Text>}
+            </View>
+
           </View>
 
           {/* ===== BUTTONS ===== */}
@@ -951,6 +1364,31 @@ const handleSave = async () => {
               keyExtractor={(item) => item}
               renderItem={renderAreaItem}
               showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ===== CUSTOMER TYPE MODAL ===== */}
+      <Modal
+        transparent
+        visible={customerTypeModalVisible}
+        animationType="fade"
+        onRequestClose={() => setCustomerTypeModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCustomerTypeModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Customer Type</Text>
+            <FlatList
+              data={customerTypes}
+              keyExtractor={(item) => item.id || item.name}
+              renderItem={renderCustomerTypeItem}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={<Text style={styles.emptyText}>No types available</Text>}
             />
           </View>
         </TouchableOpacity>
@@ -1148,6 +1586,152 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 16,
     color: '#1A1108',
+  },
+  // ===== SEARCH STYLES =====
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.15)',
+    marginBottom: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#1A1108',
+  },
+  clearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  clearButtonText: {
+    fontSize: 16,
+    color: '#8A7A6A',
+    fontWeight: 'bold',
+  },
+  resultCount: {
+    fontSize: 12,
+    color: '#8A7A6A',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  // ===== EMPLOYEE STYLES =====
+  employeeContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
+    maxHeight: 280,
+    minHeight: 100,
+    overflow: 'hidden',
+  },
+  employeeScrollView: {
+    maxHeight: 230,
+  },
+  employeeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    borderBottomWidth: 2,
+    borderBottomColor: '#D4AF37',
+  },
+  employeeHeaderText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#1A1108',
+    letterSpacing: 0.5,
+  },
+  headerEcNumberContainer: {
+    flex: 0.25,
+  },
+  headerNameContainer: {
+    flex: 0.5,
+  },
+  headerCheckboxContainer: {
+    flex: 0.25,
+    alignItems: 'flex-end',
+  },
+  employeeItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  employeeItemSelected: {
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+  },
+  employeeItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ecNumberContainer: {
+    flex: 0.25,
+  },
+  ecNumberText: {
+    fontSize: 14,
+    color: '#1A1108',
+    fontWeight: '500',
+  },
+  employeeNameContainer: {
+    flex: 0.5,
+  },
+  employeeNameText: {
+    fontSize: 14,
+    color: '#1A1108',
+  },
+  checkboxContainer: {
+    flex: 0.25,
+    alignItems: 'flex-end',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#D4AF37',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  checkboxChecked: {
+    backgroundColor: '#D4AF37',
+  },
+  checkboxTick: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  selectedCount: {
+    fontSize: 12,
+    color: '#8A7A6A',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#8A7A6A',
+    marginTop: 10,
+  },
+  emptyContainer: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#B0A090',
+    textAlign: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',

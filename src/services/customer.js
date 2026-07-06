@@ -1,6 +1,8 @@
 ﻿import api from './api';
 
 export const customerService = {
+ 
+ 
   // ✅ Quick Entry
   quickEntry: async (data) => {
     try {
@@ -21,7 +23,6 @@ export const customerService = {
 
 
   // ✅ Registration
-  // ✅ Registration
 registration: async (data) => {
   try {
     console.log('📤 Sending registration data to backend:', JSON.stringify(data, null, 2));
@@ -29,7 +30,7 @@ registration: async (data) => {
     const response = await api.post('/customer/customerreg', data);
     console.log('📥 Registration response:', response.data);
     
-    // ✅ Return success: true when backend responds
+    // Return success: true when backend responds
     return {
       success: true,
       data: response.data,
@@ -39,13 +40,15 @@ registration: async (data) => {
     console.log('❌ Registration error:', error);
     console.log('❌ Error response:', error.response?.data);
     
-    // ✅ Return success: false when backend fails
+    // Return success: false when backend fails
     return {
       success: false,
       message: error.response?.data?.message || 'Failed to register customer. Please try again.',
     };
   }
 },
+
+
   // ✅ Check Mobile Number
   checkMobile: async (mobile) => {
     try {
@@ -59,6 +62,7 @@ registration: async (data) => {
       };
     }
   },
+
 
   // ✅ Get Customer by Mobile
   getCustomerByMobile: async (mobile) => {
@@ -96,6 +100,7 @@ registration: async (data) => {
     }
   },
 
+
   // ✅ Save Chit Details
 saveChit: async (data) => {
   try {
@@ -119,7 +124,6 @@ saveChit: async (data) => {
 },
 
 
-  
   // ✅ Fetch Amount List
   getAmounts: async () => {
     try {
@@ -154,10 +158,11 @@ saveChit: async (data) => {
     }
   },
 
+
   // ✅ Fetch Group Names by Amount
   getGroups: async (amount) => {
     try {
-      // ✅ Endpoint requires amount parameter
+      //  Endpoint requires amount parameter
       const response = await api.get(`/chitcustomerreg/chitgroup/${amount}`);
       console.log('✅ Groups response for amount', amount, ':', response.data);
 
@@ -189,13 +194,14 @@ saveChit: async (data) => {
     }
   },
 
+
   // ✅ Fetch Group Details by Group Name
 getGroupDetails: async (groupName) => {
   try {
     const response = await api.get(`/chitcustomerreg/getgrpname/${groupName}`);
     console.log('📥 Group Details response:', response.data);
 
-    // ✅ Check if response is successful
+    //  Check if response is successful
     if (response.data && response.data.success === false) {
       console.log('❌ Backend error:', response.data.message);
       return {
@@ -204,7 +210,7 @@ getGroupDetails: async (groupName) => {
       };
     }
 
-    // ✅ If response is a direct object with groupNo, installment, maturedt
+    //  If response is a direct object with groupNo, installment, maturedt
     if (response.data && typeof response.data === 'object') {
       console.log('✅ Group details received:', response.data);
       return {
@@ -229,6 +235,7 @@ getGroupDetails: async (groupName) => {
     };
   }
 },
+
 
   // ✅ Fetch Branches
   getBranches: async () => {
@@ -264,13 +271,14 @@ getGroupDetails: async (groupName) => {
     }
   },
 
+
 // ✅ Fetch Canvas Types from Backend
 getCanvasTypes: async () => {
   try {
     const response = await api.get('/chitcustomerreg/chitcantype');
     console.log('✅ Canvas Types response:', response.data);
     
-    // ✅ Check if response is successful and has canvasType array
+    // Check if response is successful and has canvasType array
     if (response.data && response.data.success === true && Array.isArray(response.data.canvastype)) {
       const canvasData = response.data.canvastype
         .map((item, index) => ({
@@ -289,7 +297,7 @@ getCanvasTypes: async () => {
       }
     }
     
-    // ✅ Check for branches array format (alternative)
+    //  Check for branches array format (alternative)
     if (response.data && response.data.success === true && Array.isArray(response.data.branches)) {
       const canvasData = response.data.branches
         .map((item, index) => ({
@@ -308,7 +316,7 @@ getCanvasTypes: async () => {
       }
     }
     
-    // ✅ Check for canvasTypes array format
+    //  Check for canvasTypes array format
     if (response.data && Array.isArray(response.data.canvasTypes)) {
       const canvasData = response.data.canvasTypes
         .map((item, index) => {
@@ -331,7 +339,7 @@ getCanvasTypes: async () => {
       };
     }
     
-    // ✅ Check if response.data is directly an array
+    //  Check if response.data is directly an array
     if (Array.isArray(response.data)) {
       // Check if it's an array of strings (no IDs)
       if (typeof response.data[0] === 'string') {
@@ -367,7 +375,7 @@ getCanvasTypes: async () => {
       };
     }
     
-    // ✅ If we reach here, format is invalid
+    //  If we reach here, format is invalid
     console.log('⚠️ Invalid response format, using fallback');
     return {
       success: false,
@@ -382,16 +390,16 @@ getCanvasTypes: async () => {
   }
 },
 
+
 // ✅ Check Card Number (Check if card already exists)
-// ✅ Check Card Number (Check if card already exists)
-// ✅ Check Card Number (Check if card already exists) - With enhanced logging
+
 checkCard: async (cardNo) => {
   try {
-    // ✅ URL-encode the card number to handle special characters
+    //  URL-encode the card number to handle special characters
     const encodedCardNo = encodeURIComponent(cardNo);
     console.log('🔍 Checking card with encoded value:', encodedCardNo);
     
-    // ✅ Use the dynamic encoded card number
+    //  Use the dynamic encoded card number
     const response = await api.get(`/chitcustomerreg/chitcard?cuscard=${encodedCardNo}`);
     
     console.log('✅ Card check response:', response.data);
@@ -399,7 +407,7 @@ checkCard: async (cardNo) => {
     console.log('✅ Is array:', Array.isArray(response.data));
     console.log('✅ Response length:', Array.isArray(response.data) ? response.data.length : 'N/A');
     
-    // ✅ Handle different response formats
+    //  Handle different response formats
     
     // Case 1: Response is an array
     if (Array.isArray(response.data)) {
@@ -520,7 +528,148 @@ checkCard: async (cardNo) => {
       message: error.response?.data?.message || 'Failed to check card number.',
     };
   }
-},  // ✅ Get All Customers
+}, 
+
+// ✅ Get Employees List - Updated with correct endpoint
+getEmployees: async () => {
+  try {
+    console.log('🔄 Fetching employees from backend...');
+    const response = await api.get('/customer/crmecno');
+    console.log('📥 Employees response:', response.data);
+    
+    //  Handle the actual response format
+    // Response format: { success: true, EmployeeDetails: [...] }
+    if (response.data && response.data.success && response.data.EmployeeDetails) {
+      const employeeData = response.data.EmployeeDetails.map(emp => ({
+        ecNo: String(emp.EMPCODE || emp.ecNo || emp.id),
+        name: emp.EMPNAME || emp.name || emp.EMPLOYEE_NAME || ''
+      }));
+      
+      console.log(`✅ Loaded ${employeeData.length} employees`);
+      return {
+        success: true,
+        data: employeeData,
+      };
+    }
+    
+    // If response is directly an array
+    if (Array.isArray(response.data)) {
+      const employeeData = response.data.map(emp => ({
+        ecNo: String(emp.EMPCODE || emp.ecNo || emp.id || ''),
+        name: emp.EMPNAME || emp.name || emp.EMPLOYEE_NAME || ''
+      }));
+      
+      console.log(`✅ Loaded ${employeeData.length} employees from array`);
+      return {
+        success: true,
+        data: employeeData,
+      };
+    }
+    
+    // If response has data property
+    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      const employeeData = response.data.data.map(emp => ({
+        ecNo: String(emp.EMPCODE || emp.ecNo || emp.id || ''),
+        name: emp.EMPNAME || emp.name || emp.EMPLOYEE_NAME || ''
+      }));
+      
+      console.log(`✅ Loaded ${employeeData.length} employees from data array`);
+      return {
+        success: true,
+        data: employeeData,
+      };
+    }
+    
+    return {
+      success: false,
+      data: [],
+      message: 'Failed to fetch employees.',
+    };
+  } catch (error) {
+    console.log('❌ Get employees error:', error);
+    console.log('❌ Error response:', error.response?.data);
+    console.log('❌ Error status:', error.response?.status);
+    
+    return {
+      success: false,
+      data: [],
+      message: error.response?.data?.message || 'Failed to fetch employees.',
+    };
+  }
+},
+
+
+// ✅ Get Customer Types
+// ✅ Get Customer Types
+getCustomerTypes: async () => {
+  try {
+    console.log('🔄 Fetching customer types from backend...');
+    const response = await api.get('/customer/crmcustype'); // Update with actual endpoint
+    console.log('📥 Customer types response:', response.data);
+    
+    // ✅ Handle the actual response format
+    // Response: { success: true, CusTypeDetails: [...] }
+    if (response.data && response.data.success && response.data.CusTypeDetails) {
+      const typeData = response.data.CusTypeDetails.map(item => ({
+        id: String(item.CUSTYPECODE || item.id || ''),
+        name: item.CYSTYPENAME || item.name || item.CUSTYPENAME || ''
+      }));
+      
+      console.log(`✅ Loaded ${typeData.length} customer types`);
+      return {
+        success: true,
+        data: typeData,
+      };
+    }
+    
+    // If response has data property
+    if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      const typeData = response.data.data.map(item => ({
+        id: String(item.CUSTYPECODE || item.id || ''),
+        name: item.CYSTYPENAME || item.name || item.CUSTYPENAME || ''
+      }));
+      
+      console.log(`✅ Loaded ${typeData.length} customer types from data array`);
+      return {
+        success: true,
+        data: typeData,
+      };
+    }
+    
+    // If response is directly an array
+    if (Array.isArray(response.data)) {
+      const typeData = response.data.map(item => ({
+        id: String(item.CUSTYPECODE || item.id || ''),
+        name: item.CYSTYPENAME || item.name || item.CUSTYPENAME || ''
+      }));
+      
+      console.log(`✅ Loaded ${typeData.length} customer types from array`);
+      return {
+        success: true,
+        data: typeData,
+      };
+    }
+    
+    return {
+      success: false,
+      data: [],
+      message: 'Failed to fetch customer types.',
+    };
+  } catch (error) {
+    console.log('❌ Get customer types error:', error);
+    console.log('❌ Error response:', error.response?.data);
+    console.log('❌ Error status:', error.response?.status);
+    
+    return {
+      success: false,
+      data: [],
+      message: error.response?.data?.message || 'Failed to fetch customer types.',
+    };
+  }
+},
+
+
+// ✅ Get All Customers
   getAllCustomers: async () => {
     try {
       const response = await api.get('/customer/all');
