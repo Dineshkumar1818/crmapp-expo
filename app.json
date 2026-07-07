@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SKTM CRM",
-    "slug": "crmapp",
+    "slug": "sktm crm",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -26,11 +26,8 @@
         "backgroundColor": "#FDF8F0"
       },
       "permissions": [
-        "CAMERA",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.anonymous.crmapp"
+        "CAMERA"
+      ]
     },
     "web": {
       "favicon": "./src/assets/images/logo.png"
@@ -45,10 +42,6 @@
         }
       ]
     ],
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ]
+    "platforms": ["ios", "android", "web"]
   }
 }

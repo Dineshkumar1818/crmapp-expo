@@ -54,7 +54,7 @@ const DashboardScreen = ({ navigation }) => {
         console.log('❌ Location is null, showing alert...');
         setIsLoggingOut(false);
         
-        // ✅ Show location required alert (this will show after confirmation alert is closed)
+        // ✅ Show location required alert
         Alert.alert(
           'Location Required',
           'Please enable GPS and try again.',
@@ -95,7 +95,6 @@ const DashboardScreen = ({ navigation }) => {
           { 
             text: 'Logout', 
             onPress: () => {
-              // ✅ Close confirmation alert, then perform logout
               console.log('User confirmed logout');
               performLogout();
             },
@@ -158,7 +157,7 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* ===== FOUR MENU BUTTONS ===== */}
+        {/* ===== MENU BUTTONS ===== */}
         <View style={styles.menuContainer}>
           {/* Customer Registration */}
           <TouchableOpacity 
@@ -190,6 +189,14 @@ const DashboardScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('ChitTransaction')}
           >
             <Text style={styles.menuTitle}>Chit Transaction</Text>
+          </TouchableOpacity>
+
+          {/* ✅ Journey History - INSIDE the menuContainer */}
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => navigation.navigate('JourneyHistory')}
+          >
+            <Text style={styles.menuTitle}>🗺️ Journey History</Text>
           </TouchableOpacity>
         </View>
 

@@ -8,6 +8,8 @@ import CustomerChitScreen from '../screens/CustomerChitScreen';
 import CustomerRegistrationScreen from '../screens/CustomerRegistrationScreen';
 import ChitTransactionScreen from '../screens/ChitTransactionScreen';
 import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
+import JourneyHistoryScreen from '../screens/JourneyHistoryScreen';
+import TravelMapScreen from '../screens/TravelMapScreen';
 
 const Stack = createStackNavigator();
 
@@ -29,6 +31,8 @@ const AppNavigator = () => {
           <Stack.Screen name="CustomerRegistration" component={CustomerRegistrationScreen} />
           <Stack.Screen name="ChitTransaction" component={ChitTransactionScreen} />
           <Stack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
+          <Stack.Screen name="JourneyHistory" component={JourneyHistoryScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TravelMap" component={TravelMapScreen} options={{ headerShown: false }} />
         </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />

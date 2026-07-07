@@ -119,7 +119,7 @@ export const authService = {
       // ✅ Send logout location to backend (if user is logged in)
       if (user && user.empcode) {
         try {
-          await api.post('/auth/logout-location', payload);
+          await api.post('/auth/logout', payload);
           console.log('✅ Logout location saved');
         } catch (error) {
           console.log('⚠️ Logout location save failed:', error);
