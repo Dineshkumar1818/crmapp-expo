@@ -906,94 +906,7 @@ const CustomerRegistrationScreen = ({ navigation }) => {
               {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
             </View>
 
-            {/* 4. EMAIL */}
-            <View ref={fieldRefs.email} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, errors.email && styles.errorBorder]}
-                placeholder="Enter email address"
-                placeholderTextColor="#B0A090"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  setErrors(prev => ({ ...prev, email: '' }));
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-            </View>
-
-            {/* 5. DATE OF BIRTH */}
-            <View ref={fieldRefs.dob} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Date of Birth</Text>
-              {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(dob)}
-                  onChange={onWebDobChange}
-                  max={new Date().toISOString().split('T')[0]}
-                  style={{
-                    width: '100%',
-                    padding: '12px 15px',
-                    fontSize: '15px',
-                    borderRadius: '10px',
-                    border: `1px solid ${errors.dob ? '#DC3545' : 'rgba(212, 175, 55, 0.15)'}`,
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    color: '#1A1108',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              ) : (
-                <TouchableOpacity
-                  style={[styles.datePickerButton, errors.dob && styles.errorBorder]}
-                  onPress={() => setShowDobPicker(true)}
-                >
-                  <Text style={dob ? styles.datePickerText : styles.placeholderText}>
-                    {dob || 'Select Date of Birth'}
-                  </Text>
-                  <Text style={styles.datePickerIcon}>📅</Text>
-                </TouchableOpacity>
-              )}
-              {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
-            </View>
-
-            {/* 6. WEDDING DATE */}
-            <View ref={fieldRefs.weddingDate} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Wedding Date</Text>
-              {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(weddingDate)}
-                  onChange={onWebWeddingChange}
-                  max={new Date().toISOString().split('T')[0]}
-                  style={{
-                    width: '100%',
-                    padding: '12px 15px',
-                    fontSize: '15px',
-                    borderRadius: '10px',
-                    border: `1px solid ${errors.weddingDate ? '#DC3545' : 'rgba(212, 175, 55, 0.15)'}`,
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    color: '#1A1108',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              ) : (
-                <TouchableOpacity
-                  style={[styles.datePickerButton, errors.weddingDate && styles.errorBorder]}
-                  onPress={() => setShowWeddingPicker(true)}
-                >
-                  <Text style={weddingDate ? styles.datePickerText : styles.placeholderText}>
-                    {weddingDate || 'Select Wedding Date'}
-                  </Text>
-                  <Text style={styles.datePickerIcon}>📅</Text>
-                </TouchableOpacity>
-              )}
-              {errors.weddingDate && <Text style={styles.errorText}>{errors.weddingDate}</Text>}
-            </View>
-
+           
             {/* 7. PINCODE */}
             <View ref={fieldRefs.pincode} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>Pincode <Text style={styles.required}>*</Text></Text>
@@ -1091,6 +1004,95 @@ const CustomerRegistrationScreen = ({ navigation }) => {
               {errors.address2 && <Text style={styles.errorText}>{errors.address2}</Text>}
             </View>
 
+             {/* 4. EMAIL */}
+            <View ref={fieldRefs.email} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.input, errors.email && styles.errorBorder]}
+                placeholder="Enter email address"
+                placeholderTextColor="#B0A090"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setErrors(prev => ({ ...prev, email: '' }));
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            </View>
+
+            {/* 5. DATE OF BIRTH */}
+            <View ref={fieldRefs.dob} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Date of Birth</Text>
+              {Platform.OS === 'web' ? (
+                <input
+                  type="date"
+                  value={formatDateForInput(dob)}
+                  onChange={onWebDobChange}
+                  max={new Date().toISOString().split('T')[0]}
+                  style={{
+                    width: '100%',
+                    padding: '12px 15px',
+                    fontSize: '15px',
+                    borderRadius: '10px',
+                    border: `1px solid ${errors.dob ? '#DC3545' : 'rgba(212, 175, 55, 0.15)'}`,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    color: '#1A1108',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ) : (
+                <TouchableOpacity
+                  style={[styles.datePickerButton, errors.dob && styles.errorBorder]}
+                  onPress={() => setShowDobPicker(true)}
+                >
+                  <Text style={dob ? styles.datePickerText : styles.placeholderText}>
+                    {dob || 'Select Date of Birth'}
+                  </Text>
+                  <Text style={styles.datePickerIcon}>📅</Text>
+                </TouchableOpacity>
+              )}
+              {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
+            </View>
+
+            {/* 6. WEDDING DATE */}
+            <View ref={fieldRefs.weddingDate} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Wedding Date</Text>
+              {Platform.OS === 'web' ? (
+                <input
+                  type="date"
+                  value={formatDateForInput(weddingDate)}
+                  onChange={onWebWeddingChange}
+                  max={new Date().toISOString().split('T')[0]}
+                  style={{
+                    width: '100%',
+                    padding: '12px 15px',
+                    fontSize: '15px',
+                    borderRadius: '10px',
+                    border: `1px solid ${errors.weddingDate ? '#DC3545' : 'rgba(212, 175, 55, 0.15)'}`,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    color: '#1A1108',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ) : (
+                <TouchableOpacity
+                  style={[styles.datePickerButton, errors.weddingDate && styles.errorBorder]}
+                  onPress={() => setShowWeddingPicker(true)}
+                >
+                  <Text style={weddingDate ? styles.datePickerText : styles.placeholderText}>
+                    {weddingDate || 'Select Wedding Date'}
+                  </Text>
+                  <Text style={styles.datePickerIcon}>📅</Text>
+                </TouchableOpacity>
+              )}
+              {errors.weddingDate && <Text style={styles.errorText}>{errors.weddingDate}</Text>}
+            </View>
+
+
             {/* 12. PAN */}
             <View ref={fieldRefs.pan} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>PAN</Text>
@@ -1129,7 +1131,7 @@ const CustomerRegistrationScreen = ({ navigation }) => {
             </View>
 
             {/* 14. GST */}
-            <View ref={fieldRefs.gst} style={styles.fieldContainer} collapsable={false}>
+            {/* <View ref={fieldRefs.gst} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>GST</Text>
               <TextInput
                 style={[styles.input, errors.gst && styles.errorBorder]}
@@ -1143,7 +1145,7 @@ const CustomerRegistrationScreen = ({ navigation }) => {
                 autoCapitalize="characters"
               />
               {errors.gst && <Text style={styles.errorText}>{errors.gst}</Text>}
-            </View>
+            </View> */}
 
             {/* 15. CUSTOMER TYPE - NEW FIELD */}
             <View ref={fieldRefs.customerType} style={styles.fieldContainer} collapsable={false}>

@@ -30,11 +30,12 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (username, password, branch) => {
+  // ✅ Updated login with location
+  const login = async (username, password, branch, location = null) => {
     console.log('🔍 AuthContext - login called with branch:', branch);
-    console.log('🔍 AuthContext - branch type:', typeof branch);
+    console.log('🔍 AuthContext - location:', location);
     
-    const result = await authService.login(username, password, branch);
+    const result = await authService.login(username, password, branch, location);
     console.log('🔍 AuthContext - login result:', result);
     
     if (result.success) {
@@ -46,8 +47,9 @@ export const AuthProvider = ({ children }) => {
     return result;
   };
 
-  const logout = async () => {
-    await authService.logout();
+  // ✅ Updated logout with location
+  const logout = async (location = null) => {
+    await authService.logout(location);
     setIsLoggedIn(false);
     setUser(null);
     setSelectedBranch(null);

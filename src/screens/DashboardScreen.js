@@ -1,4 +1,4 @@
-﻿import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,13 @@ import {
   Animated,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { getLocationCrossPlatform } from '../services/locationService';
 
 const { width, height } = Dimensions.get('window');
 
 const DashboardScreen = ({ navigation }) => {
   const { logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // ✅ Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -38,21 +40,67 @@ const DashboardScreen = ({ navigation }) => {
     ]).start();
   }, []);
 
-  // ✅ FIXED: Logout with platform check
+  // ✅ Perform logout with location check
+  const performLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      
+      console.log('📍 Getting location for logout...');
+      
+      // ✅ Get location
+      const location = await getLocationCrossPlatform();
+      
+      if (!location) {
+        console.log('❌ Location is null, showing alert...');
+        setIsLoggingOut(false);
+        
+        // ✅ Show location required alert (this will show after confirmation alert is closed)
+        Alert.alert(
+          'Location Required',
+          'Please enable GPS and try again.',
+          [
+            { text: 'OK', onPress: () => console.log('User dismissed location alert') }
+          ]
+        );
+        return;
+      }
+      
+      console.log('📍 Location obtained:', location);
+      
+      // ✅ Proceed with logout
+      await logout(location);
+      
+    } catch (error) {
+      console.log('Logout error:', error);
+      setIsLoggingOut(false);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
+
+  // ✅ Handle logout button press
   const handleLogout = () => {
+    if (isLoggingOut) return;
+
+    // ✅ Show confirmation alert first
     if (Platform.OS === 'web') {
-      // Use browser confirm for web
       if (window.confirm('Are you sure you want to logout?')) {
-        logout();
+        performLogout();
       }
     } else {
-      // Use Alert for mobile
       Alert.alert(
         'Logout',
         'Are you sure you want to logout?',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Logout', onPress: logout, style: 'destructive' }
+          { 
+            text: 'Logout', 
+            onPress: () => {
+              // ✅ Close confirmation alert, then perform logout
+              console.log('User confirmed logout');
+              performLogout();
+            },
+            style: 'destructive' 
+          }
         ]
       );
     }
@@ -146,9 +194,15 @@ const DashboardScreen = ({ navigation }) => {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity 
+          style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]} 
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+        >
           <View style={styles.logoutGradient}>
-            <Text style={styles.logoutText}>Logout</Text>
+            <Text style={styles.logoutText}>
+              {isLoggingOut ? 'Getting Location...' : 'Logout'}
+            </Text>
           </View>
         </TouchableOpacity>
 
@@ -305,6 +359,9 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 12,
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
   },
   logoutGradient: {
     paddingVertical: 12,

@@ -5,23 +5,33 @@ import { ENV } from '../config/env';
 export const authService = {
 
   // =========================
-  // LOGIN
+  // LOGIN - Updated with Location
   // =========================
-  login: async (username, password, branchId) => {
+  login: async (username, password, branchId, location = null) => {
     try {
       // 🔍 Debug input values
       console.log('LOGIN INPUT:', {
         username: username,
         password: password,
         branch: Number(branchId),
+        location: location,
       });
 
       // 🧾 Payload sent to backend
       const payload = {
         username: username,
         password: password,
-        branch: Number(branchId),  // ✅ FIXED: Use branchId
+        branch: Number(branchId),
       };
+
+      // ✅ Add location if available
+      if (location) {
+        payload.location = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy || null,
+        };
+      }
 
       console.log('LOGIN PAYLOAD SENT:', payload);
 
@@ -43,7 +53,8 @@ export const authService = {
         ENV.STORAGE_KEYS.USER,
         JSON.stringify({
           ...user,
-          branch: Number(branchId),  // ✅ FIXED: Use branchId
+          empcode: user.empcode || user.Username || user.id,
+          branch: Number(branchId),
         })
       );
 
@@ -52,7 +63,8 @@ export const authService = {
         token,
         user: {
           ...user,
-          branch: Number(branchId),  // ✅ FIXED: Use branchId
+          empcode: user.empcode || user.Username || user.id,
+          branch: Number(branchId),
         },
       };
 
@@ -72,14 +84,61 @@ export const authService = {
   },
 
   // =========================
-  // LOGOUT
+  // LOGOUT - Updated with empcode
   // =========================
-  logout: async () => {
+  logout: async (location = null) => {
     try {
+      // Get current user for logout tracking
+      const user = await authService.getCurrentUser();
+      
+      // Prepare logout payload
+      const payload = {};
+      
+      // ✅ Use empcode instead of userId
+      if (user && user.empcode) {
+        payload.empcode = user.empcode;
+      }
+      
+      // Add branch if available
+      if (user && user.branch) {
+        payload.branch = user.branch;
+      }
+      
+      // Add location if available
+      if (location) {
+        payload.location = {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: location.accuracy || null,
+        };
+        payload.action = 'logout';
+      }
+
+      console.log('LOGOUT PAYLOAD:', payload);
+
+      // ✅ Send logout location to backend (if user is logged in)
+      if (user && user.empcode) {
+        try {
+          await api.post('/auth/logout-location', payload);
+          console.log('✅ Logout location saved');
+        } catch (error) {
+          console.log('⚠️ Logout location save failed:', error);
+          // Don't block logout if location save fails
+        }
+      }
+
+      // Clear local storage
       await AsyncStorage.removeItem(ENV.STORAGE_KEYS.TOKEN);
       await AsyncStorage.removeItem(ENV.STORAGE_KEYS.USER);
+      
+      return { success: true };
+
     } catch (error) {
       console.log('LOGOUT ERROR:', error);
+      // Still clear storage even if API fails
+      await AsyncStorage.removeItem(ENV.STORAGE_KEYS.TOKEN);
+      await AsyncStorage.removeItem(ENV.STORAGE_KEYS.USER);
+      return { success: false, error };
     }
   },
 
@@ -97,9 +156,10 @@ export const authService = {
       );
 
       if (token && user) {
+        const parsedUser = JSON.parse(user);
         return {
           isLoggedIn: true,
-          user: JSON.parse(user),
+          user: parsedUser,
         };
       }
 

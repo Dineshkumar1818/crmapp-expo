@@ -26,8 +26,11 @@
         "backgroundColor": "#FDF8F0"
       },
       "permissions": [
-        "CAMERA"
-      ]
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.crmapp"
     },
     "web": {
       "favicon": "./src/assets/images/logo.png"
@@ -42,6 +45,10 @@
         }
       ]
     ],
-    "platforms": ["ios", "android", "web"]
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ]
   }
 }

@@ -13,11 +13,13 @@ import {
   ImageBackground,
   Dimensions,
   Animated,
+  Alert,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
 import { COLORS } from '../styles/colors';
+import { getLocationCrossPlatform } from '../services/locationService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -37,6 +39,7 @@ const LoginScreen = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [error, setError] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -62,11 +65,13 @@ const LoginScreen = () => {
     ]).start();
   }, []);
 
+  // ✅ Updated handleLogin with location tracking
   const handleLogin = async () => {
     console.log('Username:', username);
     console.log('Password:', password);
     console.log('Selected Branch:', selectedBranch);
 
+    // ✅ Validate inputs
     if (!selectedBranch) {
       setError('Please select a branch');
       return;
@@ -78,22 +83,39 @@ const LoginScreen = () => {
     }
 
     setLoading(true);
+    setGettingLocation(true);
     setError('');
 
     try {
+      // ✅ STEP 1: Get location first
+      console.log('📍 Getting location for login...');
+      const location = await getLocationCrossPlatform();
+      setGettingLocation(false);
+      
+      if (!location) {
+        setError('Location is required for login. Please enable GPS and try again.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('📍 Location obtained for login:', location);
+
+      // ✅ STEP 2: Login with location
       const result = await login(
         username,
         password,
-        selectedBranch.id
+        selectedBranch.id,
+        location  // ✅ Pass location to login
       );
 
       if (!result.success) {
         setError(result.message || 'Invalid credentials');
       }
     } catch (err) {
-      setError('Login failed');
-      console.log(err);
+      console.log('Login error:', err);
+      setError('Login failed. Please try again.');
     } finally {
+      setGettingLocation(false);
       setLoading(false);
     }
   };
@@ -192,10 +214,15 @@ const LoginScreen = () => {
             <Text style={styles.errorText}>{error}</Text>
           ) : null}
 
+          {gettingLocation && (
+            <Text style={styles.locationText}>📍 Getting your location...</Text>
+          )}
+
           <CustomButton
-            title="Login"
+            title={gettingLocation ? 'Getting Location...' : 'Login'}
             onPress={handleLogin}
             loading={loading}
+            disabled={gettingLocation}
           />
         </Animated.View>
       </KeyboardAvoidingView>
@@ -343,6 +370,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     marginBottom: 10,
+  },
+  locationText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 10,
+    fontStyle: 'italic',
   },
   modalOverlay: {
     flex: 1,
