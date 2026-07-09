@@ -10,6 +10,7 @@ import ChitTransactionScreen from '../screens/ChitTransactionScreen';
 import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
 import JourneyHistoryScreen from '../screens/JourneyHistoryScreen';
 import TravelMapScreen from '../screens/TravelMapScreen';
+import JourneyFilterScreen from '../screens/JourneyFilterScreen';
 
 const Stack = createStackNavigator();
 
@@ -33,6 +34,7 @@ const AppNavigator = () => {
           <Stack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
           <Stack.Screen name="JourneyHistory" component={JourneyHistoryScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TravelMap" component={TravelMapScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="JourneyFilter" component={JourneyFilterScreen} options={{ headerShown: false }} />
         </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />

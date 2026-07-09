@@ -175,29 +175,33 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.menuTitle}>Customer Quick Entry</Text>
           </TouchableOpacity>
 
-          {/* Customer Chit */}
-          <TouchableOpacity 
-            style={styles.menuItem} 
-            onPress={() => navigation.navigate('CustomerChit')}
-          >
-            <Text style={styles.menuTitle}>Customer Chit</Text>
-          </TouchableOpacity>
+          {Platform.OS === 'web' && (
+  <>
+    {/* Customer Chit */}
+    <TouchableOpacity
+      style={styles.menuItem}
+      onPress={() => navigation.navigate('CustomerChit')}
+    >
+      <Text style={styles.menuTitle}>Customer Chit</Text>
+    </TouchableOpacity>
 
-          {/* Chit Transaction */}
-          <TouchableOpacity 
-            style={styles.menuItem} 
-            onPress={() => navigation.navigate('ChitTransaction')}
-          >
-            <Text style={styles.menuTitle}>Chit Transaction</Text>
-          </TouchableOpacity>
+    {/* Chit Transaction */}
+    <TouchableOpacity
+      style={styles.menuItem}
+      onPress={() => navigation.navigate('ChitTransaction')}
+    >
+      <Text style={styles.menuTitle}>Chit Transaction</Text>
+    </TouchableOpacity>
 
-          {/* ✅ Journey History - INSIDE the menuContainer */}
-          <TouchableOpacity 
-            style={styles.menuItem} 
-            onPress={() => navigation.navigate('JourneyHistory')}
-          >
-            <Text style={styles.menuTitle}>🗺️ Journey History</Text>
-          </TouchableOpacity>
+    {/* Journey History */}
+    <TouchableOpacity
+      style={styles.menuItem}
+      onPress={() => navigation.navigate('JourneyFilter')}
+    >
+      <Text style={styles.menuTitle}>🗺️ Journey History</Text>
+    </TouchableOpacity>
+  </>
+)}
         </View>
 
         {/* Logout Button */}
@@ -213,6 +217,8 @@ const DashboardScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
+
+        
         {/* Bottom Brand */}
         <Text style={styles.brandText}>Shree Kumaran Thangamaalihai</Text>
         <View style={styles.bottomGoldLine} />

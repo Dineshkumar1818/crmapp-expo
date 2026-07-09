@@ -107,7 +107,7 @@ export const requestLocationPermission = async () => {
     if (status !== 'granted') {
       showAlert(
         'Permission Denied',
-        'Location permission is required for logout tracking. Please enable it in settings.',
+        'Location permission is required for tracking. Please enable it in settings.',
         [{ text: 'OK' }]
       );
       return false;
@@ -116,6 +116,93 @@ export const requestLocationPermission = async () => {
   } catch (error) {
     console.log('Error requesting location permission:', error);
     return false;
+  }
+};
+
+/**
+ * ✅ NEW: Request background location permission
+ */
+export const requestBackgroundLocationPermission = async () => {
+  try {
+    if (Platform.OS === 'web') {
+      console.log('📍 Web platform - background location not supported');
+      return false;
+    }
+
+    console.log('📍 Requesting background location permission...');
+    const { status } = await Location.requestBackgroundPermissionsAsync();
+    console.log('📍 Background permission status:', status);
+    
+    if (status !== 'granted') {
+      console.log('⚠️ Background location permission denied');
+      showAlert(
+        'Background Location',
+        'Background location permission is required for tracking when the app is closed. Please enable it in settings.',
+        [
+          { text: 'OK' }
+        ]
+      );
+      return false;
+    }
+    
+    console.log('✅ Background location permission granted');
+    return true;
+  } catch (error) {
+    console.log('Error requesting background permission:', error);
+    return false;
+  }
+};
+
+/**
+ * ✅ NEW: Check if background location permission is granted
+ */
+export const checkBackgroundLocationPermission = async () => {
+  try {
+    if (Platform.OS === 'web') {
+      return false;
+    }
+    const { status } = await Location.getBackgroundPermissionsAsync();
+    console.log('📍 Background permission status:', status);
+    return status === 'granted';
+  } catch (error) {
+    console.log('Error checking background permission:', error);
+    return false;
+  }
+};
+
+/**
+ * ✅ NEW: Check both foreground and background permissions
+ */
+export const requestAllLocationPermissions = async () => {
+  try {
+    console.log('📍 Requesting all location permissions...');
+    
+    // First, check foreground permission
+    const foregroundGranted = await requestLocationPermission();
+    if (!foregroundGranted) {
+      console.log('❌ Foreground permission denied');
+      return {
+        foreground: false,
+        background: false,
+        allGranted: false,
+      };
+    }
+
+    // Then, check background permission
+    const backgroundGranted = await requestBackgroundLocationPermission();
+    
+    return {
+      foreground: true,
+      background: backgroundGranted,
+      allGranted: foregroundGranted && backgroundGranted,
+    };
+  } catch (error) {
+    console.log('Error requesting all permissions:', error);
+    return {
+      foreground: false,
+      background: false,
+      allGranted: false,
+    };
   }
 };
 
@@ -204,6 +291,31 @@ export const getLocationWithCheck = async () => {
 };
 
 /**
+ * ✅ NEW: Get location with background permission check
+ */
+export const getLocationWithBackgroundCheck = async () => {
+  console.log('📍 Starting location check with background support...');
+  
+  // Get all permissions
+  const permissions = await requestAllLocationPermissions();
+  console.log('📍 Permissions result:', permissions);
+  
+  if (!permissions.foreground) {
+    console.log('❌ Foreground permission not granted');
+    return { location: null, permissions };
+  }
+
+  // Get current location
+  const location = await getCurrentLocation();
+  
+  return {
+    location,
+    permissions,
+    backgroundEnabled: permissions.background,
+  };
+};
+
+/**
  * Web fallback for browser-based location
  */
 export const getWebLocation = () => {
@@ -262,5 +374,18 @@ export const getLocationCrossPlatform = async () => {
     return await getWebLocation();
   } else {
     return await getLocationWithCheck();
+  }
+};
+
+/**
+ * ✅ NEW: Cross-platform location getter with background support
+ */
+export const getLocationCrossPlatformWithBackground = async () => {
+  console.log('📍 Getting location with background support...');
+  if (Platform.OS === 'web') {
+    const location = await getWebLocation();
+    return { location, backgroundEnabled: false };
+  } else {
+    return await getLocationWithBackgroundCheck();
   }
 };

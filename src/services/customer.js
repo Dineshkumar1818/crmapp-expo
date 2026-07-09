@@ -600,7 +600,6 @@ getEmployees: async () => {
 
 
 // ✅ Get Customer Types
-// ✅ Get Customer Types
 getCustomerTypes: async () => {
   try {
     console.log('🔄 Fetching customer types from backend...');
@@ -664,6 +663,139 @@ getCustomerTypes: async () => {
       success: false,
       data: [],
       message: error.response?.data?.message || 'Failed to fetch customer types.',
+    };
+  }
+},
+
+
+// ✅ Get Filter Employees for Journey History - UPDATED
+getFilterEmployees: async (branch, fromDate, toDate) => {
+  try {
+    console.log('🔄 Fetching filter employees from backend...');
+    console.log(`  Branch: ${branch}`);
+    console.log(`  From Date: ${fromDate}`);
+    console.log(`  To Date: ${toDate}`);
+    
+    // ✅ Build URL with query params
+    const params = new URLSearchParams();
+    if (branch) params.append('branch', branch);
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
+    
+    const url = `/getbranch/CRMECNO${params.toString() ? '?' + params.toString() : ''}`;
+    console.log(`📌 URL: ${url}`);
+    
+    const response = await api.get(url);
+    console.log('📥 Filter employees response:', JSON.stringify(response.data, null, 2));
+    
+    if (response.data && response.data.success) {
+      // ✅ Handle the actual response format from backend
+      // Response: { success: true, branches: [{ EMPCODE: 666, EMPNAME: "IT", CRMDATE: "2026-07-08T00:00:00.000Z" }] }
+      if (response.data.branches && Array.isArray(response.data.branches)) {
+        const employeeData = response.data.branches.map(emp => ({
+          id: String(emp.EMPCODE || emp.id || ''),
+          name: emp.EMPNAME || emp.name || 'Unknown',
+          ecNo: String(emp.EMPCODE || emp.id || ''),
+          crmDate: emp.CRMDATE || null,
+        }));
+        console.log(`✅ Loaded ${employeeData.length} filter employees`);
+        return {
+          success: true,
+          data: employeeData,
+        };
+      }
+      
+      // Fallback: Check for data array
+      if (response.data.data && Array.isArray(response.data.data)) {
+        const employeeData = response.data.data.map(emp => ({
+          id: String(emp.id || emp.empCode || emp.employeeId || ''),
+          name: emp.name || emp.empName || emp.employeeName || 'Unknown',
+          ecNo: String(emp.empCode || emp.employeeCode || emp.id || ''),
+        }));
+        console.log(`✅ Loaded ${employeeData.length} filter employees from data`);
+        return {
+          success: true,
+          data: employeeData,
+        };
+      }
+      
+      // Fallback: Check for employees array
+      if (response.data.employees && Array.isArray(response.data.employees)) {
+        const employeeData = response.data.employees.map(emp => ({
+          id: String(emp.id || emp.empCode || emp.employeeId || ''),
+          name: emp.name || emp.empName || emp.employeeName || 'Unknown',
+          ecNo: String(emp.empCode || emp.employeeCode || emp.id || ''),
+        }));
+        console.log(`✅ Loaded ${employeeData.length} filter employees from employees`);
+        return {
+          success: true,
+          data: employeeData,
+        };
+      }
+    }
+    
+    console.log('⚠️ No employees found for the selected filters');
+    return {
+      success: false,
+      data: [],
+      message: 'No employees found for the selected filters',
+    };
+  } catch (error) {
+    console.log('❌ Get filter employees error:', error);
+    console.log('❌ Error response:', error.response?.data);
+    return {
+      success: false,
+      data: [],
+      message: error.response?.data?.message || 'Failed to fetch employees',
+    };
+  }
+},
+
+// ✅ Get Filter Branches for Journey History - UPDATED
+getFilterBranches: async () => {
+  try {
+    console.log('🔄 Fetching filter branches from backend...');
+    const response = await api.get('/getbranch/branch');
+    console.log('📥 Filter branches response:', JSON.stringify(response.data, null, 2));
+    
+    if (response.data && response.data.success) {
+      if (response.data.branches && Array.isArray(response.data.branches)) {
+        const branchData = response.data.branches.map(branch => ({
+          id: String(branch.brannumb || branch.id || ''),
+          name: branch.branname || branch.name || '',
+        }));
+        console.log(`✅ Loaded ${branchData.length} branches`);
+        return {
+          success: true,
+          data: branchData,
+        };
+      }
+      
+      if (response.data.data && Array.isArray(response.data.data)) {
+        const branchData = response.data.data.map((item, index) => ({
+          id: String(index + 1),
+          name: typeof item === 'string' ? item : item.name || item.branname || '',
+        }));
+        console.log(`✅ Loaded ${branchData.length} branches from data`);
+        return {
+          success: true,
+          data: branchData,
+        };
+      }
+    }
+    
+    console.log('⚠️ No branches found');
+    return {
+      success: false,
+      data: [],
+      message: 'Failed to fetch branches',
+    };
+  } catch (error) {
+    console.log('❌ Get filter branches error:', error);
+    return {
+      success: false,
+      data: [],
+      message: error.response?.data?.message || 'Failed to fetch branches',
     };
   }
 },

@@ -50,9 +50,10 @@ const CustomerRegistrationScreen = ({ navigation }) => {
   const [aadhaar, setAadhaar] = useState('');
   const [gst, setGst] = useState('');
 
-  // ===== CUSTOMER TYPE STATE =====
+  // ===== CUSTOMER TYPE STATE - Store full object =====
   const [customerTypes, setCustomerTypes] = useState([]);
-  const [selectedCustomerType, setSelectedCustomerType] = useState('');
+  const [selectedCustomerType, setSelectedCustomerType] = useState(null); // ✅ Store full object
+  const [selectedCustomerTypeName, setSelectedCustomerTypeName] = useState(''); // ✅ For display
   const [loadingCustomerTypes, setLoadingCustomerTypes] = useState(false);
   const [customerTypeModalVisible, setCustomerTypeModalVisible] = useState(false);
 
@@ -170,29 +171,24 @@ const CustomerRegistrationScreen = ({ navigation }) => {
       
       if (result.success && result.data) {
         setCustomerTypes(result.data);
-        // Auto-select first type by default (optional)
-        // setSelectedCustomerType(result.data[0]?.name || '');
       } else {
         // Fallback mock data
         const mockTypes = [
-          { id: '1', name: 'Type 1' },
-          { id: '2', name: 'Type 2' },
-          { id: '3', name: 'Type 3' },
-          { id: '4', name: 'Type 4' },
-          { id: '5', name: 'Type 5' },
+          { id: '1', name: 'VIP' },
+          { id: '2', name: 'ORGANIZATION' },
+          { id: '3', name: 'VVIP' },
+          { id: '4', name: 'OTHERS' },
         ];
         setCustomerTypes(mockTypes);
         console.log('⚠️ Using mock customer types data');
       }
     } catch (error) {
       console.log('❌ Error fetching customer types:', error);
-      // Fallback mock data
       const mockTypes = [
-        { id: '1', name: 'Type 1' },
-        { id: '2', name: 'Type 2' },
-        { id: '3', name: 'Type 3' },
-        { id: '4', name: 'Type 4' },
-        { id: '5', name: 'Type 5' },
+        { id: '1', name: 'VIP' },
+        { id: '2', name: 'ORGANIZATION' },
+        { id: '3', name: 'VVIP' },
+        { id: '4', name: 'OTHERS' },
       ];
       setCustomerTypes(mockTypes);
     } finally {
@@ -228,7 +224,6 @@ const CustomerRegistrationScreen = ({ navigation }) => {
         setFilteredEmployees(result.data);
         setSelectedEmployees([]);
       } else {
-        // Mock data for testing - 15 employees
         const mockEmployees = [
           { ecNo: 'EMP001', name: 'Rajesh Kumar' },
           { ecNo: 'EMP002', name: 'Priya Sharma' },
@@ -240,36 +235,20 @@ const CustomerRegistrationScreen = ({ navigation }) => {
           { ecNo: 'EMP008', name: 'Karthik Raj' },
           { ecNo: 'EMP009', name: 'Meena Kumari' },
           { ecNo: 'EMP010', name: 'Suresh Babu' },
-          { ecNo: 'EMP011', name: 'Lakshmi Narayanan' },
-          { ecNo: 'EMP012', name: 'Ganesh Moorthy' },
-          { ecNo: 'EMP013', name: 'Saranya Devi' },
-          { ecNo: 'EMP014', name: 'Murali Krishna' },
-          { ecNo: 'EMP015', name: 'Anitha Rani' },
         ];
         setEmployees(mockEmployees);
         setFilteredEmployees(mockEmployees);
         setSelectedEmployees([]);
-        console.log('⚠️ Using mock employee data (15 employees for testing scroll)');
+        console.log('⚠️ Using mock employee data');
       }
     } catch (error) {
       console.log('❌ Error fetching employees:', error);
-      // Fallback mock data
       const mockEmployees = [
         { ecNo: 'EMP001', name: 'Rajesh Kumar' },
         { ecNo: 'EMP002', name: 'Priya Sharma' },
         { ecNo: 'EMP003', name: 'Amit Patel' },
         { ecNo: 'EMP004', name: 'Sneha Reddy' },
         { ecNo: 'EMP005', name: 'Vikram Singh' },
-        { ecNo: 'EMP006', name: 'Arun Kumar' },
-        { ecNo: 'EMP007', name: 'Deepa Lakshmi' },
-        { ecNo: 'EMP008', name: 'Karthik Raj' },
-        { ecNo: 'EMP009', name: 'Meena Kumari' },
-        { ecNo: 'EMP010', name: 'Suresh Babu' },
-        { ecNo: 'EMP011', name: 'Lakshmi Narayanan' },
-        { ecNo: 'EMP012', name: 'Ganesh Moorthy' },
-        { ecNo: 'EMP013', name: 'Saranya Devi' },
-        { ecNo: 'EMP014', name: 'Murali Krishna' },
-        { ecNo: 'EMP015', name: 'Anitha Rani' },
       ];
       setEmployees(mockEmployees);
       setFilteredEmployees(mockEmployees);
@@ -355,7 +334,8 @@ const CustomerRegistrationScreen = ({ navigation }) => {
 
   // ===== HANDLE CUSTOMER TYPE SELECTION =====
   const handleCustomerTypeSelect = (type) => {
-    setSelectedCustomerType(type.name);
+    setSelectedCustomerType(type); // ✅ Store full object
+    setSelectedCustomerTypeName(type.name); // ✅ For display
     setCustomerTypeModalVisible(false);
     setErrors(prev => ({ ...prev, customerType: '' }));
   };
@@ -630,8 +610,8 @@ const CustomerRegistrationScreen = ({ navigation }) => {
         cuspan: pan,
         cusaadhar: aadhaar,
         cusgstno: gst,
-        // ✅ Add customer type
-        customerType: selectedCustomerType,
+        // ✅ FIXED: Send CUSTYPECODE (id) instead of name
+        customerType: selectedCustomerType.id, // e.g., "1", "2", "3", "4"
         // ✅ CORRECT FIELD NAME - Backend expects "employees"
         employees: selectedEmployees,
       };
@@ -730,7 +710,8 @@ const CustomerRegistrationScreen = ({ navigation }) => {
     setMobileExists(false);
     setCheckingMobile(false);
     setLastCheckedMobile('');
-    setSelectedCustomerType('');
+    setSelectedCustomerType(null); // ✅ Reset full object
+    setSelectedCustomerTypeName(''); // ✅ Reset display name
     setSelectedEmployees([]);
     setSearchQuery('');
   };
@@ -755,21 +736,6 @@ const CustomerRegistrationScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  // ===== RENDER EMPLOYEE HEADER =====
-  const renderEmployeeHeader = () => (
-    <View style={styles.employeeHeader}>
-      <View style={styles.headerEcNumberContainer}>
-        <Text style={styles.employeeHeaderText}>EC.No</Text>
-      </View>
-      <View style={styles.headerNameContainer}>
-        <Text style={styles.employeeHeaderText}>Name</Text>
-      </View>
-      <View style={styles.headerCheckboxContainer}>
-        <Text style={styles.employeeHeaderText}>Checkbox</Text>
-      </View>
-    </View>
-  );
-
   // ===== RENDER EMPLOYEE ITEM =====
   const renderEmployeeItem = ({ item }) => (
     <TouchableOpacity
@@ -781,17 +747,12 @@ const CustomerRegistrationScreen = ({ navigation }) => {
       activeOpacity={0.7}
     >
       <View style={styles.employeeItemContent}>
-        {/* EC Number */}
         <View style={styles.ecNumberContainer}>
           <Text style={styles.ecNumberText}>{item.ecNo}</Text>
         </View>
-        
-        {/* Name */}
         <View style={styles.employeeNameContainer}>
           <Text style={styles.employeeNameText}>{item.name}</Text>
         </View>
-        
-        {/* Checkbox */}
         <View style={styles.checkboxContainer}>
           <View style={[
             styles.checkbox,
@@ -906,7 +867,94 @@ const CustomerRegistrationScreen = ({ navigation }) => {
               {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
             </View>
 
-           
+            {/* 4. EMAIL */}
+            <View ref={fieldRefs.email} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.input, errors.email && styles.errorBorder]}
+                placeholder="Enter email address"
+                placeholderTextColor="#B0A090"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setErrors(prev => ({ ...prev, email: '' }));
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            </View>
+
+            {/* 5. DATE OF BIRTH */}
+            <View ref={fieldRefs.dob} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Date of Birth</Text>
+              {Platform.OS === 'web' ? (
+                <input
+                  type="date"
+                  value={formatDateForInput(dob)}
+                  onChange={onWebDobChange}
+                  max={new Date().toISOString().split('T')[0]}
+                  style={{
+                    width: '100%',
+                    padding: '12px 15px',
+                    fontSize: '15px',
+                    borderRadius: '10px',
+                    border: `1px solid ${errors.dob ? '#DC3545' : 'rgba(212, 175, 55, 0.15)'}`,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    color: '#1A1108',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ) : (
+                <TouchableOpacity
+                  style={[styles.datePickerButton, errors.dob && styles.errorBorder]}
+                  onPress={() => setShowDobPicker(true)}
+                >
+                  <Text style={dob ? styles.datePickerText : styles.placeholderText}>
+                    {dob || 'Select Date of Birth'}
+                  </Text>
+                  <Text style={styles.datePickerIcon}>📅</Text>
+                </TouchableOpacity>
+              )}
+              {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
+            </View>
+
+            {/* 6. WEDDING DATE */}
+            <View ref={fieldRefs.weddingDate} style={styles.fieldContainer} collapsable={false}>
+              <Text style={styles.label}>Wedding Date</Text>
+              {Platform.OS === 'web' ? (
+                <input
+                  type="date"
+                  value={formatDateForInput(weddingDate)}
+                  onChange={onWebWeddingChange}
+                  max={new Date().toISOString().split('T')[0]}
+                  style={{
+                    width: '100%',
+                    padding: '12px 15px',
+                    fontSize: '15px',
+                    borderRadius: '10px',
+                    border: `1px solid ${errors.weddingDate ? '#DC3545' : 'rgba(212, 175, 55, 0.15)'}`,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    color: '#1A1108',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ) : (
+                <TouchableOpacity
+                  style={[styles.datePickerButton, errors.weddingDate && styles.errorBorder]}
+                  onPress={() => setShowWeddingPicker(true)}
+                >
+                  <Text style={weddingDate ? styles.datePickerText : styles.placeholderText}>
+                    {weddingDate || 'Select Wedding Date'}
+                  </Text>
+                  <Text style={styles.datePickerIcon}>📅</Text>
+                </TouchableOpacity>
+              )}
+              {errors.weddingDate && <Text style={styles.errorText}>{errors.weddingDate}</Text>}
+            </View>
+
             {/* 7. PINCODE */}
             <View ref={fieldRefs.pincode} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>Pincode <Text style={styles.required}>*</Text></Text>
@@ -1004,95 +1052,6 @@ const CustomerRegistrationScreen = ({ navigation }) => {
               {errors.address2 && <Text style={styles.errorText}>{errors.address2}</Text>}
             </View>
 
-             {/* 4. EMAIL */}
-            <View ref={fieldRefs.email} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, errors.email && styles.errorBorder]}
-                placeholder="Enter email address"
-                placeholderTextColor="#B0A090"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  setErrors(prev => ({ ...prev, email: '' }));
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-            </View>
-
-            {/* 5. DATE OF BIRTH */}
-            <View ref={fieldRefs.dob} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Date of Birth</Text>
-              {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(dob)}
-                  onChange={onWebDobChange}
-                  max={new Date().toISOString().split('T')[0]}
-                  style={{
-                    width: '100%',
-                    padding: '12px 15px',
-                    fontSize: '15px',
-                    borderRadius: '10px',
-                    border: `1px solid ${errors.dob ? '#DC3545' : 'rgba(212, 175, 55, 0.15)'}`,
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    color: '#1A1108',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              ) : (
-                <TouchableOpacity
-                  style={[styles.datePickerButton, errors.dob && styles.errorBorder]}
-                  onPress={() => setShowDobPicker(true)}
-                >
-                  <Text style={dob ? styles.datePickerText : styles.placeholderText}>
-                    {dob || 'Select Date of Birth'}
-                  </Text>
-                  <Text style={styles.datePickerIcon}>📅</Text>
-                </TouchableOpacity>
-              )}
-              {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
-            </View>
-
-            {/* 6. WEDDING DATE */}
-            <View ref={fieldRefs.weddingDate} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>Wedding Date</Text>
-              {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  value={formatDateForInput(weddingDate)}
-                  onChange={onWebWeddingChange}
-                  max={new Date().toISOString().split('T')[0]}
-                  style={{
-                    width: '100%',
-                    padding: '12px 15px',
-                    fontSize: '15px',
-                    borderRadius: '10px',
-                    border: `1px solid ${errors.weddingDate ? '#DC3545' : 'rgba(212, 175, 55, 0.15)'}`,
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                    color: '#1A1108',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              ) : (
-                <TouchableOpacity
-                  style={[styles.datePickerButton, errors.weddingDate && styles.errorBorder]}
-                  onPress={() => setShowWeddingPicker(true)}
-                >
-                  <Text style={weddingDate ? styles.datePickerText : styles.placeholderText}>
-                    {weddingDate || 'Select Wedding Date'}
-                  </Text>
-                  <Text style={styles.datePickerIcon}>📅</Text>
-                </TouchableOpacity>
-              )}
-              {errors.weddingDate && <Text style={styles.errorText}>{errors.weddingDate}</Text>}
-            </View>
-
-
             {/* 12. PAN */}
             <View ref={fieldRefs.pan} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>PAN</Text>
@@ -1130,24 +1089,7 @@ const CustomerRegistrationScreen = ({ navigation }) => {
               {errors.aadhaar && <Text style={styles.errorText}>{errors.aadhaar}</Text>}
             </View>
 
-            {/* 14. GST */}
-            {/* <View ref={fieldRefs.gst} style={styles.fieldContainer} collapsable={false}>
-              <Text style={styles.label}>GST</Text>
-              <TextInput
-                style={[styles.input, errors.gst && styles.errorBorder]}
-                placeholder="Enter GST number"
-                placeholderTextColor="#B0A090"
-                value={gst}
-                onChangeText={(text) => {
-                  setGst(text.toUpperCase());
-                  setErrors(prev => ({ ...prev, gst: '' }));
-                }}
-                autoCapitalize="characters"
-              />
-              {errors.gst && <Text style={styles.errorText}>{errors.gst}</Text>}
-            </View> */}
-
-            {/* 15. CUSTOMER TYPE - NEW FIELD */}
+            {/* 15. CUSTOMER TYPE - FIXED */}
             <View ref={fieldRefs.customerType} style={styles.fieldContainer} collapsable={false}>
               <Text style={styles.label}>Customer Type <Text style={styles.required}>*</Text></Text>
               <TouchableOpacity
@@ -1170,7 +1112,7 @@ const CustomerRegistrationScreen = ({ navigation }) => {
                 disabled={loadingCustomerTypes}
               >
                 <Text style={selectedCustomerType ? styles.dropdownText : styles.placeholderText}>
-                  {loadingCustomerTypes ? 'Loading types...' : (selectedCustomerType || 'Select Customer Type')}
+                  {loadingCustomerTypes ? 'Loading types...' : (selectedCustomerTypeName || 'Select Customer Type')}
                 </Text>
                 <Text style={styles.dropdownArrow}>▼</Text>
               </TouchableOpacity>
@@ -1589,7 +1531,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1A1108',
   },
-  // ===== SEARCH STYLES =====
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1621,7 +1562,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontStyle: 'italic',
   },
-  // ===== EMPLOYEE STYLES =====
   employeeContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 12,

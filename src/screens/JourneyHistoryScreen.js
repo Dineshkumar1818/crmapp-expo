@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Alert,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
@@ -16,22 +17,98 @@ import locationTrackService from '../services/locationTrackService';
 
 const { width, height } = Dimensions.get('window');
 
-const JourneyHistoryScreen = ({ navigation }) => {
+const JourneyHistoryScreen = ({ navigation, route }) => {
   const { user } = useAuth();
-  const [journeys, setJourneys] = useState([]);
+  const { filters } = route.params || {};
+  
+  const [allJourneys, setAllJourneys] = useState([]);
+  const [displayedJourneys, setDisplayedJourneys] = useState([]);
   const [selectedJourney, setSelectedJourney] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const [filterInfo, setFilterInfo] = useState(null);
+  const scrollViewRef = useRef(null);
+  
+  const PAGE_SIZE = 10;
 
   const fetchJourneys = useCallback(async () => {
     try {
       setLoading(true);
-      const localJourneys = await locationTrackService.getJourneyHistory();
-      localJourneys.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setJourneys(localJourneys);
-      if (localJourneys.length > 0) {
-        setSelectedJourney(localJourneys[0]);
+      
+      // ✅ If filters exist, use them
+      if (filters) {
+        console.log('📥 Using filters from navigation:', filters);
+        setFilterInfo(filters);
+        
+        // ✅ Fetch data from backend
+        const filteredData = await locationTrackService.getJourneyHistoryWithFilters(
+          filters.empcode,
+          filters.branch,
+          filters.fromDate,
+          filters.toDate
+        );
+        
+        console.log(`📥 Raw data from backend: ${filteredData.length} journeys`);
+        
+        // ✅ APPLY CLIENT-SIDE DATE FILTERING (Backup for when backend doesn't filter)
+        let finalData = filteredData;
+        
+        if (filters.fromDate && filters.toDate) {
+          const from = new Date(filters.fromDate);
+          const to = new Date(filters.toDate);
+          // Set to end of day
+          to.setHours(23, 59, 59, 999);
+          
+          finalData = filteredData.filter(journey => {
+            const journeyDate = new Date(journey.date);
+            return journeyDate >= from && journeyDate <= to;
+          });
+          
+          console.log(`📥 After client-side date filter: ${finalData.length} journeys`);
+          console.log(`📋 Filtered dates: ${finalData.map(j => new Date(j.date).toLocaleDateString()).join(', ')}`);
+        }
+        
+        const sorted = finalData.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setAllJourneys(sorted);
+        const initialData = sorted.slice(0, PAGE_SIZE);
+        setDisplayedJourneys(initialData);
+        setHasMore(sorted.length > PAGE_SIZE);
+        setPage(1);
+        
+        if (initialData.length > 0) {
+          setSelectedJourney(initialData[0]);
+        }
+        return;
       }
+      
+      // ✅ Fallback to default (current user) - No filters
+      console.log('📥 No filters, using current user');
+      setFilterInfo(null);
+      
+      const empcode = user?.empcode || user?.username;
+      const branch = user?.branch || 1;
+      
+      const allJourneysData = await locationTrackService.getJourneyHistory(empcode, branch);
+      
+      console.log(`📥 Total journeys fetched: ${allJourneysData.length}`);
+      
+      const sorted = allJourneysData.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      setAllJourneys(sorted);
+      
+      const initialData = sorted.slice(0, PAGE_SIZE);
+      setDisplayedJourneys(initialData);
+      setHasMore(sorted.length > PAGE_SIZE);
+      setPage(1);
+      
+      if (initialData.length > 0) {
+        setSelectedJourney(initialData[0]);
+      }
+      
+      console.log(`📍 Displaying ${initialData.length} journeys, Has more: ${sorted.length > PAGE_SIZE}`);
     } catch (error) {
       console.log('Error fetching journeys:', error);
       Alert.alert('Error', 'Failed to load journey history');
@@ -39,7 +116,7 @@ const JourneyHistoryScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user, filters]);
 
   useEffect(() => {
     fetchJourneys();
@@ -50,7 +127,45 @@ const JourneyHistoryScreen = ({ navigation }) => {
     await fetchJourneys();
   };
 
+  const handleLoadMore = () => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    
+    const nextPage = page + 1;
+    const endIndex = nextPage * PAGE_SIZE;
+    
+    const newData = allJourneys.slice(0, endIndex);
+    setDisplayedJourneys(newData);
+    setHasMore(allJourneys.length > endIndex);
+    setPage(nextPage);
+    
+    console.log(`📥 Loaded ${newData.length} journeys, Has more: ${allJourneys.length > endIndex}`);
+    
+    setLoadingMore(false);
+  };
+
+  // ✅ Clear history - only works for local data
   const clearHistory = () => {
+    // ✅ Check if we're viewing filtered data
+    if (filters) {
+      Alert.alert(
+        'Info',
+        'Clear history is only available for your own journey history. Please go back and remove filters.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // ✅ Web: Use window.confirm
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to clear all journey history?')) {
+        performClearHistory();
+      }
+      return;
+    }
+    
+    // ✅ Mobile: Use Alert.alert
     Alert.alert(
       'Clear History',
       'Are you sure you want to clear all journey history?',
@@ -59,25 +174,50 @@ const JourneyHistoryScreen = ({ navigation }) => {
         { 
           text: 'Clear', 
           style: 'destructive',
-          onPress: async () => {
-            await locationTrackService.clearJourneyHistory();
-            setJourneys([]);
-            setSelectedJourney(null);
-            Alert.alert('Success', 'Journey history cleared');
-          }
+          onPress: performClearHistory
         }
       ]
     );
+  };
+
+  // ✅ Actual clear function
+  const performClearHistory = async () => {
+    try {
+      await locationTrackService.clearJourneyHistory();
+      setAllJourneys([]);
+      setDisplayedJourneys([]);
+      setSelectedJourney(null);
+      setHasMore(false);
+      
+      // ✅ Show success message
+      if (Platform.OS === 'web') {
+        alert('✅ Journey history cleared successfully!');
+      } else {
+        Alert.alert('Success', 'Journey history cleared');
+      }
+    } catch (error) {
+      console.log('Error clearing history:', error);
+      if (Platform.OS === 'web') {
+        alert('❌ Failed to clear journey history');
+      } else {
+        Alert.alert('Error', 'Failed to clear journey history');
+      }
+    }
+  };
+
+  // ✅ Go back to filter screen
+  const goBackToFilters = () => {
+    navigation.goBack();
   };
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Unknown';
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
+      return date.toLocaleDateString('en-IN', { 
         month: 'short', 
         day: 'numeric', 
-        year: 'numeric' 
+        year: 'numeric'
       });
     } catch {
       return 'Unknown';
@@ -85,15 +225,46 @@ const JourneyHistoryScreen = ({ navigation }) => {
   };
 
   const formatTime = (dateString) => {
-    if (!dateString) return '';
+    if (!dateString) return "";
+
     try {
-      const date = new Date(dateString);
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
+      // Extract only the time portion from SQL datetime
+      const time = dateString.split(" ")[1]; // "15:23:21.587"
+
+      const [hour, minute, second] = time.split(":");
+
+      let h = parseInt(hour, 10);
+      const ampm = h >= 12 ? "PM" : "AM";
+
+      h = h % 12;
+      if (h === 0) h = 12;
+
+      return `${String(h).padStart(2, "0")}:${minute}:${second.substring(0,2)} ${ampm}`;
+
+    } catch (e) {
+      return "";
+    }
+  };
+
+  const getDuration = (startTime, endTime) => {
+    if (!startTime || !endTime) return 'Unknown';
+    try {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      const diffMs = end - start;
+      
+      if (diffMs < 0) return '0s';
+      
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffSecs = Math.floor((diffMs % 60000) / 1000);
+      
+      if (diffMins > 0) {
+        return `${diffMins}m ${diffSecs}s`;
+      } else {
+        return `${diffSecs}s`;
+      }
     } catch {
-      return '';
+      return 'Unknown';
     }
   };
 
@@ -130,44 +301,133 @@ const JourneyHistoryScreen = ({ navigation }) => {
     );
   }
 
+  const renderFooter = () => {
+    if (loadingMore) {
+      return (
+        <View style={styles.footerContainer}>
+          <ActivityIndicator size="small" color="#D4AF37" />
+          <Text style={styles.footerText}>Loading more...</Text>
+        </View>
+      );
+    }
+    
+    if (hasMore && displayedJourneys.length > 0) {
+      return (
+        <TouchableOpacity 
+          style={styles.loadMoreButton}
+          onPress={handleLoadMore}
+        >
+          <Text style={styles.loadMoreText}>📥 Load More Journeys</Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    if (!hasMore && displayedJourneys.length > 0) {
+      return (
+        <View style={styles.footerContainer}>
+          <Text style={styles.footerText}>✅ All {allJourneys.length} journeys loaded</Text>
+        </View>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton} 
-          onPress={() => navigation.goBack()}
+          onPress={goBackToFilters}
         >
           <Text style={styles.backText}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>📍 Journey History</Text>
-        {journeys.length > 0 && (
+        {!filters && allJourneys.length > 0 && (
           <TouchableOpacity onPress={clearHistory}>
             <Text style={styles.deleteText}>🗑️</Text>
           </TouchableOpacity>
         )}
+        {filters && (
+          <View style={styles.filterBadge}>
+            <Text style={styles.filterBadgeText}>🔍</Text>
+          </View>
+        )}
       </View>
 
-      {journeys.length === 0 ? (
+      {/* ✅ Filter Info Bar */}
+      {filters && (
+        <View style={styles.filterInfoBar}>
+          <View style={styles.filterInfoRow}>
+            <Text style={styles.filterInfoLabel}>👤 Employee:</Text>
+            <Text style={styles.filterInfoValue}>{filters.employeeName || filters.empcode}</Text>
+          </View>
+          <View style={styles.filterInfoRow}>
+            <Text style={styles.filterInfoLabel}>🏢 Branch:</Text>
+            <Text style={styles.filterInfoValue}>{filters.branchName || filters.branch}</Text>
+          </View>
+          <View style={styles.filterInfoRow}>
+            <Text style={styles.filterInfoLabel}>📅 From:</Text>
+            <Text style={styles.filterInfoValue}>{filters.fromDateDisplay || filters.fromDate}</Text>
+            <Text style={styles.filterInfoLabel}> To:</Text>
+            <Text style={styles.filterInfoValue}>{filters.toDateDisplay || filters.toDate}</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.clearFilterButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.clearFilterText}>✕ Change Filters</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {allJourneys.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>🗺️</Text>
-          <Text style={styles.emptyTitle}>No Journeys Yet</Text>
+          <Text style={styles.emptyTitle}>No Journeys Found</Text>
           <Text style={styles.emptySubtext}>
-            Your travel paths will appear here after you login and move around
+            {filters 
+              ? `No journeys found for:\n\n👤 ${filters.employeeName || filters.empcode}\n🏢 ${filters.branchName || filters.branch}\n📅 ${filters.fromDateDisplay || filters.fromDate} to ${filters.toDateDisplay || filters.toDate}\n\nTry changing your search criteria.`
+              : 'Your travel paths will appear here after you login and move around'
+            }
           </Text>
+          {filters && (
+            <TouchableOpacity 
+              style={styles.backToFilterButton}
+              onPress={goBackToFilters}
+            >
+              <Text style={styles.backToFilterText}>🔍 Change Filters</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <ScrollView
-          style={styles.content}
+          ref={scrollViewRef}
+          style={[
+            styles.content,
+            Platform.OS === 'web' && styles.webScrollView
+          ]}
+          contentContainerStyle={[
+            styles.contentContainer,
+            Platform.OS === 'web' && styles.webContentContainer
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
+          showsVerticalScrollIndicator={true}
+          scrollEventThrottle={16}
         >
-          {journeys.map((journey, index) => {
+          {displayedJourneys.map((journey, index) => {
             const locationCount = journey.locations?.length || 0;
             const distance = journey.totalDistance || 
               (journey.locations && journey.locations.length > 1 ? 
                 getTotalDistance(journey.locations) : 0);
             const isSelected = selectedJourney?.id === journey.id;
+            
+            const firstLoc = journey.locations?.[0];
+            const lastLoc = journey.locations?.[journey.locations?.length - 1];
+            const startTime = firstLoc?.tracked_at || journey.startTime || journey.date;
+            const endTime = lastLoc?.tracked_at || journey.endTime || journey.date;
             
             return (
               <TouchableOpacity
@@ -184,10 +444,13 @@ const JourneyHistoryScreen = ({ navigation }) => {
                       {formatDate(journey.date)}
                     </Text>
                     <Text style={styles.journeyTime}>
-                      {journey.loginLocation ? '🟢' : '⚪'} Start: {formatTime(journey.loginLocation?.tracked_at || journey.startTime)}
+                      🟢 Start: {formatTime(startTime)}
                     </Text>
                     <Text style={styles.journeyTime}>
-                      {journey.logoutLocation ? '🔴' : '⚪'} End: {formatTime(journey.logoutLocation?.tracked_at || journey.endTime)}
+                      🔴 End: {formatTime(endTime)}
+                    </Text>
+                    <Text style={styles.journeyDuration}>
+                      ⏱️ Duration: {getDuration(startTime, endTime)}
                     </Text>
                   </View>
                   <View style={styles.journeyStats}>
@@ -196,7 +459,7 @@ const JourneyHistoryScreen = ({ navigation }) => {
                     </Text>
                     {distance > 0 && (
                       <Text style={styles.journeyDistance}>
-                        📏 {distance.toFixed(2)} km
+                        📏 {(distance * 1000).toFixed(0)} m
                       </Text>
                     )}
                   </View>
@@ -205,17 +468,24 @@ const JourneyHistoryScreen = ({ navigation }) => {
                 {isSelected && journey.locations && journey.locations.length > 0 && (
                   <View style={styles.journeyDetails}>
                     <Text style={styles.detailsTitle}>📍 Route Details</Text>
-                    {journey.locations.slice(0, 5).map((loc, idx) => (
-                      <View key={idx} style={styles.locationPoint}>
-                        <Text style={styles.pointNumber}>{idx + 1}.</Text>
-                        <Text style={styles.pointCoords}>
-                          {loc.latitude?.toFixed(6)}, {loc.longitude?.toFixed(6)}
-                        </Text>
-                        <Text style={styles.pointTime}>
-                          {formatTime(loc.tracked_at)}
-                        </Text>
-                      </View>
-                    ))}
+                    {journey.locations.slice(0, 5).map((loc, idx) => {
+                      const isStart = idx === 0;
+                      const isEnd = idx === journey.locations.length - 1;
+                      const label = isStart ? 'Start' : isEnd ? 'End' : `Point ${idx}`;
+                      
+                      return (
+                        <View key={idx} style={styles.locationPoint}>
+                          <Text style={styles.pointNumber}>{idx + 1}.</Text>
+                          <Text style={styles.pointLabel}>{label}:</Text>
+                          <Text style={styles.pointCoords}>
+                            {loc.latitude?.toFixed(6)}, {loc.longitude?.toFixed(6)}
+                          </Text>
+                          <Text style={styles.pointTime}>
+                            {formatTime(loc.tracked_at)}
+                          </Text>
+                        </View>
+                      );
+                    })}
                     {journey.locations.length > 5 && (
                       <Text style={styles.morePoints}>
                         ... and {journey.locations.length - 5} more locations
@@ -224,22 +494,10 @@ const JourneyHistoryScreen = ({ navigation }) => {
                     <TouchableOpacity 
                       style={styles.viewMapButton}
                       onPress={() => {
-                        Alert.alert(
-                          'View Route',
-                          'Show ' + journey.locations.length + ' locations on map?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { 
-                              text: 'View Map',
-                              onPress: () => {
-                                navigation.navigate('TravelMap', { 
-                                  locations: journey.locations,
-                                  journeyDate: journey.date
-                                });
-                              }
-                            }
-                          ]
-                        );
+                        navigation.navigate('TravelMap', { 
+                          locations: journey.locations,
+                          journeyDate: journey.date
+                        });
                       }}
                     >
                       <Text style={styles.viewMapText}>🗺️ View on Map</Text>
@@ -249,6 +507,8 @@ const JourneyHistoryScreen = ({ navigation }) => {
               </TouchableOpacity>
             );
           })}
+          
+          {renderFooter()}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -298,10 +558,80 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: '#F44336',
   },
+  filterBadge: {
+    backgroundColor: '#D4AF37',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  filterBadgeText: {
+    fontSize: 16,
+    color: '#fff',
+  },
+  filterInfoBar: {
+    backgroundColor: '#FFF8E7',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  filterInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  filterInfoLabel: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+    marginRight: 4,
+  },
+  filterInfoValue: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '600',
+    marginRight: 12,
+  },
+  clearFilterButton: {
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    backgroundColor: '#D4AF37',
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  clearFilterText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  backToFilterButton: {
+    marginTop: 16,
+    backgroundColor: '#D4AF37',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  backToFilterText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 12,
+  },
+  webScrollView: {
+    overflowY: 'auto',
+    WebkitOverflowScrolling: 'touch',
+    height: '100%',
+    maxHeight: 'calc(100vh - 120px)',
+  },
+  contentContainer: {
+    paddingBottom: 20,
+  },
+  webContentContainer: {
+    minHeight: '100%',
   },
   emptyContainer: {
     flex: 1,
@@ -360,6 +690,12 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
+  journeyDuration: {
+    fontSize: 13,
+    color: '#D4AF37',
+    fontWeight: '600',
+    marginTop: 2,
+  },
   journeyStats: {
     alignItems: 'flex-end',
   },
@@ -395,6 +731,12 @@ const styles = StyleSheet.create({
     color: '#999',
     width: 24,
   },
+  pointLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#D4AF37',
+    width: 45,
+  },
   pointCoords: {
     fontSize: 12,
     color: '#333',
@@ -403,6 +745,8 @@ const styles = StyleSheet.create({
   pointTime: {
     fontSize: 11,
     color: '#999',
+    width: 65,
+    textAlign: 'right',
   },
   morePoints: {
     fontSize: 12,
@@ -421,6 +765,29 @@ const styles = StyleSheet.create({
   viewMapText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: 14,
+  },
+  footerContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerText: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  loadMoreButton: {
+    backgroundColor: '#D4AF37',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    color: '#fff',
+    fontWeight: 'bold',
     fontSize: 14,
   },
 });

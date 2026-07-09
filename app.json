@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SKTM CRM",
-    "slug": "sktm crm",
+    "slug": "sktm-crm",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -17,7 +17,11 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to scan barcodes for card numbers."
+        "NSCameraUsageDescription": "This app uses the camera to scan barcodes for card numbers.",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to track your journey and save your travel routes.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access to track your journey even when in background.",
+        "NSLocationAlwaysUsageDescription": "This app needs location access to track your journey even when in background.",
+        "UIBackgroundModes": ["location", "fetch"]
       }
     },
     "android": {
@@ -26,8 +30,21 @@
         "backgroundColor": "#FDF8F0"
       },
       "permissions": [
-        "CAMERA"
-      ]
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
+      "package": "com.anonymous.sktmcrm",
+      "foregroundService": {
+        "notificationTitle": "📍 Location Tracking",
+        "notificationBody": "Tracking your journey in background...",
+        "notificationColor": "#D4AF37"
+      }
     },
     "web": {
       "favicon": "./src/assets/images/logo.png"
@@ -40,8 +57,19 @@
           "cameraPermission": "Allow CRM App to access your camera to scan barcodes.",
           "barcodeScannerEnabled": true
         }
+      ],
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
       ]
     ],
-    "platforms": ["ios", "android", "web"]
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ]
   }
 }
